@@ -1,0 +1,217 @@
+{
+  "summary": {
+    "total_findings": 17,
+    "risk_score": 104,
+    "risk_level": "CRITICAL RISK - Severe security flaws present. Do NOT deploy without remediation.",
+    "severity_breakdown": {
+      "CRITICAL": 5,
+      "HIGH": 6,
+      "MEDIUM": 6
+    },
+    "findings_by_agent": {
+      "Agent A - Pattern Detector": 10,
+      "Agent B - Auth Logic Auditor (Ollama) [Heuristic]": 5,
+      "Agent C - Data Flow Analyzer": 2
+    },
+    "files_scanned": [
+      "sample_app\\app (1).py"
+    ],
+    "most_vulnerable_files": [
+      {
+        "file": "sample_app\\app (1).py",
+        "count": 17
+      }
+    ],
+    "scan_duration_seconds": 0.07,
+    "target_path": "sample_app/"
+  },
+  "findings": [
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Hardcoded Secret",
+      "description": "Potential hardcoded credential or secret detected on line 12.",
+      "severity": "CRITICAL",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 12,
+      "code_snippet": "DB_PASSWORD = \"admin123\"",
+      "recommendation": "Use environment variables or a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager) instead of hardcoding secrets.",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Hardcoded Secret",
+      "description": "Potential hardcoded credential or secret detected on line 13.",
+      "severity": "CRITICAL",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 13,
+      "code_snippet": "API_KEY = \"sk-abc123xyz789hardcoded\"",
+      "recommendation": "Use environment variables or a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager) instead of hardcoding secrets.",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Exposed API Key",
+      "description": "Potential hardcoded credential or secret detected on line 13.",
+      "severity": "CRITICAL",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 13,
+      "code_snippet": "API_KEY = \"sk-abc123xyz789hardcoded\"",
+      "recommendation": "Use environment variables or a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager) instead of hardcoding secrets.",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Use of eval() Detected",
+      "description": "eval() on line 79 can execute arbitrary code if user input is passed.",
+      "severity": "CRITICAL",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 79,
+      "code_snippet": "result = eval(data)",
+      "recommendation": "Avoid eval() entirely. Use safe alternatives like ast.literal_eval() for data parsing, or redesign the logic.",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "SQL Injection Risk - String Concatenation in Query",
+      "description": "Line 42 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.",
+      "severity": "HIGH",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 42,
+      "code_snippet": "query = \"SELECT * FROM users WHERE username = '\" + username + \"' AND password = '\" + password + \"'\"",
+      "recommendation": "Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.",
+      "cwe_id": "CWE-89"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "SQL Injection Risk - String Concatenation in Query",
+      "description": "Line 69 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.",
+      "severity": "HIGH",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 69,
+      "code_snippet": "query = f\"SELECT * FROM products WHERE name LIKE '%{term}%'\"",
+      "recommendation": "Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.",
+      "cwe_id": "CWE-89"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "SQL Injection Risk - String Concatenation in Query",
+      "description": "Line 91 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.",
+      "severity": "HIGH",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 91,
+      "code_snippet": "cursor.execute(\"UPDATE users SET password = '\" + new_pass + \"' WHERE id = \" + user_id)",
+      "recommendation": "Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.",
+      "cwe_id": "CWE-89"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Debug Mode Enabled",
+      "description": "Debug mode is enabled on line 16. In production, this exposes stack traces, internal state, and may enable the interactive debugger.",
+      "severity": "MEDIUM",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 16,
+      "code_snippet": "DEBUG = True",
+      "recommendation": "Disable debug mode in production. Use environment-based configuration (e.g., DEBUG = os.getenv('DEBUG', 'False') == 'True').",
+      "cwe_id": "CWE-215"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Debug Mode Enabled",
+      "description": "Debug mode is enabled on line 17. In production, this exposes stack traces, internal state, and may enable the interactive debugger.",
+      "severity": "MEDIUM",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 17,
+      "code_snippet": "app.config['DEBUG'] = True",
+      "recommendation": "Disable debug mode in production. Use environment-based configuration (e.g., DEBUG = os.getenv('DEBUG', 'False') == 'True').",
+      "cwe_id": "CWE-215"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Plaintext Password Comparison",
+      "description": "Line 35 compares a password in plaintext. Passwords should be hashed before storage and comparison.",
+      "severity": "HIGH",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 35,
+      "code_snippet": "if username == ADMIN_USER and password == ADMIN_PASS:",
+      "recommendation": "Use bcrypt, argon2, or PBKDF2 for password hashing. Never store or compare plaintext passwords.",
+      "cwe_id": "CWE-256"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (Ollama) [Heuristic]",
+      "title": "Unauthenticated Route Handler",
+      "description": "Route 'login' does not verify authentication.",
+      "severity": "MEDIUM",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 30,
+      "code_snippet": "def login():\n    username = request.form.get(\"username\")\n    password = request.form.get(\"password\")\n\n    # Vulnerability: Plaintext password comparison\n    if username == ADMIN_USER and password == A",
+      "recommendation": "Add authentication checks.",
+      "cwe_id": "CWE-306"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (Ollama) [Heuristic]",
+      "title": "Login Bypass - Always-True Condition",
+      "description": "Function 'admin_panel' contains 'or True' which bypasses authentication.",
+      "severity": "CRITICAL",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 52,
+      "code_snippet": "if role == \"admin\" or True:",
+      "recommendation": "Remove always-true conditions.",
+      "cwe_id": "CWE-287"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (Ollama) [Heuristic]",
+      "title": "Unauthenticated Route Handler",
+      "description": "Route 'search' does not verify authentication.",
+      "severity": "MEDIUM",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 63,
+      "code_snippet": "def search():\n    term = request.args.get(\"q\", \"\")\n    db = get_db()\n    cursor = db.cursor()\n\n    # Vulnerability: Another raw SQL injection\n    query = f\"SELECT * FROM products WHERE name LIKE '%{te",
+      "recommendation": "Add authentication checks.",
+      "cwe_id": "CWE-306"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (Ollama) [Heuristic]",
+      "title": "Unauthenticated Route Handler",
+      "description": "Route 'eval_endpoint' does not verify authentication.",
+      "severity": "MEDIUM",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 76,
+      "code_snippet": "def eval_endpoint():\n    data = request.json.get(\"expression\", \"\")\n    # Vulnerability: eval() on user input\n    result = eval(data)\n    return jsonify({\"result\": result})",
+      "recommendation": "Add authentication checks.",
+      "cwe_id": "CWE-306"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (Ollama) [Heuristic]",
+      "title": "Unauthenticated Route Handler",
+      "description": "Route 'reset_password' does not verify authentication.",
+      "severity": "MEDIUM",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 84,
+      "code_snippet": "def reset_password():\n    user_id = request.form.get(\"user_id\")\n    new_pass = request.form.get(\"password\")\n    db = get_db()\n    cursor = db.cursor()\n\n    # Vulnerability: SQL injection in update\n   ",
+      "recommendation": "Add authentication checks.",
+      "cwe_id": "CWE-306"
+    },
+    {
+      "agent": "Agent C - Data Flow Analyzer",
+      "title": "Unsanitized User Input Reaches eval()",
+      "description": "In function 'eval_endpoint', user-controlled variable(s) ['data'] flow directly into 'eval()' without apparent sanitization.",
+      "severity": "HIGH",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 79,
+      "code_snippet": "eval(data)",
+      "recommendation": "Sanitize and validate all user-supplied data before passing to database queries, OS commands, or eval-like functions. Use parameterized queries for SQL.",
+      "cwe_id": "CWE-20"
+    },
+    {
+      "agent": "Agent C - Data Flow Analyzer",
+      "title": "Unsanitized User Input Reaches cursor.execute()",
+      "description": "In function 'reset_password', user-controlled variable(s) ['user_id', 'new_pass'] flow directly into 'cursor.execute()' without apparent sanitization.",
+      "severity": "HIGH",
+      "filepath": "sample_app\\app (1).py",
+      "lineno": 91,
+      "code_snippet": "cursor.execute(\"UPDATE users SET password = '\" + new_pass + \"' WHERE id = \" + user_id)",
+      "recommendation": "Sanitize and validate all user-supplied data before passing to database queries, OS commands, or eval-like functions. Use parameterized queries for SQL.",
+      "cwe_id": "CWE-20"
+    }
+  ]
+}

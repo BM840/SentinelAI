@@ -1,8 +1,8 @@
 {
   "stats": {
-    "total_fixes_generated": 39,
-    "ollama_fixes": 19,
-    "rule_fixes": 20,
+    "total_fixes_generated": 40,
+    "ollama_fixes": 14,
+    "rule_fixes": 26,
     "files_patched": 1
   },
   "fixes": [
@@ -22,8 +22,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 20,
       "before": "STRIPE_SECRET = \"sk_live_4eKoV8mNpQrL92xZ\"",
-      "after": "STRIPE_SECRET = os.environ.get('STRIPE_SECRET') or 'your-default-secret'",
-      "explanation": "Hardcoded secrets can be easily exposed and misused; using environment variables for sensitive data helps to keep them secure, with a fallback in case the variable is not set.",
+      "after": "STRIPE_SECRET = os.environ.get('STRIPE_SECRET') or 'your-default-secret'  # Replace 'your-default-secret' with your actual secret key if necessary, but avoid hardcoding secrets in code files.",
+      "explanation": "Hardcoded sensitive information can be easily extracted by malicious actors; using environment variables for storing such data is a best practice to enhance security and make the credentials less acce",
       "type": "ollama"
     },
     {
@@ -32,8 +32,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 21,
       "before": "SENDGRID_API_KEY = \"SG.xK9mP2nQvL8rT5wY\"",
-      "after": "SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY') or 'your-default-api-key'",
-      "explanation": "Similar to secrets for Stripe, API keys should be stored securely and not hardcoded; environment variables provide a safer way of managing sensitive credentials without exposing them in the codebase.",
+      "after": "SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY') or 'your-default-api-key'  # Replace with your actual API key if necessary, but avoid hardcoding secrets in code files.",
+      "explanation": "Similar to the STRIPE_SECRET vulnerability; storing sensitive data like an API key as environment variables helps prevent accidental exposure through version control systems and other unauthorized acc",
       "type": "ollama"
     },
     {
@@ -42,8 +42,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 318,
       "before": "result     = eval(expression)",
-      "after": "result = eval(expression) if isinstance(expression, str) else expression  # Assuming 'safe_eval' function exists to safely evaluate expressions",
-      "explanation": "The use of `eval()` can lead to arbitrary command execution; replacing it with a safe evaluation method or removing the code altogether prevents potential security breaches.",
+      "after": "result = eval(expression)  # Replace 'eval' with a safer alternative, such as using ast.literal_eval() or directly executing the expression if it is safe to do so without external input: `result = some_safe_function(expression)`",
+      "explanation": "The use of `eval()` can execute arbitrary code which might be harmful; replacing eval with a safer alternative prevents potential execution of malicious code.",
       "type": "ollama"
     },
     {
@@ -52,8 +52,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 200,
       "before": "\"SELECT username, email FROM users WHERE username LIKE '%\" + query + \"%'\"",
-      "after": "query = \"%\" + query + \"%\" if not isinstance(query, str) else query  # Ensure that 'query' is always treated as string for LIKE operation",
-      "explanation": "String concatenation with user input can lead to SQL injection attacks; ensuring the variable is a string before using it in an SQL statement helps prevent this vulnerability.",
+      "after": "query = \"%\" + user_input + \"%' \"  # Ensure that the input is sanitized before using it in SQL queries to prevent injection attacks: `query = f\"%{user_input}%\"` if necessary, and use parameterized statements instead of string concatenation.",
+      "explanation": "String concatenation with user inputs can lead to SQL Injection vulnerabilities; employing prepared statements or query parameters ensures that the input is treated as data rather than executable code",
       "type": "ollama"
     },
     {
@@ -62,8 +62,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 271,
       "before": "users = conn.execute(\"SELECT * FROM users\").fetchall()",
-      "after": "users = conn.execute(\"SELECT * FROM users\").fetchall() if not debug_mode else None  # Assuming 'debug_mode' and proper exception handling are implemented elsewhere",
-      "explanation": "Executing queries without checking the mode can lead to sensitive information exposure in development; restricting query execution based on a flag or environment variable helps maintain security.",
+      "after": "users = conn.execute(\"SELECT * FROM users\").fetchall()  # Replace this unsafe method of fetching all records with using parameterized queries to prevent SQL Injection: `users = conn.execute(\"SELECT username, email FROM users WHERE id=?\", [user_id]).fetchall()`",
+      "explanation": "Directly executing a query without parameters can lead to SQL injection attacks; by using placeholders and passing user inputs as arguments in parameterized queries, the database system treats them st",
       "type": "ollama"
     },
     {
@@ -72,8 +72,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 23,
       "before": "app.config[\"DEBUG\"] = True",
-      "after": "app.config[\"DEBUG\"] = False  # Disable debug mode by default for production environments",
-      "explanation": "Enabling debug mode exposes detailed error messages and potentially sensitive data to end-users in production; disabling it reduces the risk of information leakage during errors or exceptions.",
+      "after": "app.config[\"DEBUG\"] = False  # Disable debug mode for production environments: `app.run(debug=False)` if necessary to prevent sensitive information from being exposed through error messages and logs.",
+      "explanation": "Enabling the debug mode in a live environment can expose sensitive data; disabling it helps protect against accidental leaks of confidential information present in tracebacks or verbose logging output",
       "type": "ollama"
     },
     {
@@ -82,8 +82,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 371,
       "before": "app.run(debug=True, host=\"0.0.0.0\", port=5000)",
-      "after": "app.run(debug=False, host=\"0.00.0.0\", port=5000)  # Disable debug mode explicitly and specify a non-default IP address for production environments",
-      "explanation": "Debugging in production can reveal sensitive information; disabling it by default enhances security while still allowing the application to run on all network interfaces when necessary.",
+      "after": "app.run(debug=False, host=\"0.00.0.0\", port=5000)  # Disable debug mode and restrict access to the local machine: `app.run()` if necessary for a production environment without exposing it publicly on all interfaces",
+      "explanation": "Running in debug mode can leak sensitive information; disabling debugging helps prevent accidental leaks, while specifying host as \"0.0.0.0\" restricts access to the local machine only and not open to",
       "type": "ollama"
     },
     {
@@ -92,39 +92,49 @@
       "filepath": "demo_app\\app.py",
       "lineno": 35,
       "before": "def init_db():\n    conn = get_db()\n    conn.execute(\"\"\"\n        CREATE TABLE IF NOT EXISTS users (\n            id INTEGER PRIMARY KEY,\n            username TEXT UNIQUE NOT NULL,\n            password TEXT NOT NULL,\n            email TEXT,\n            balance REAL DEFAULT 1000.0,\n            role TEXT...",
-      "after": "conn = get_db()     conn.execute(\"\"\"         CREATE TABLE IF NOT EXISTS users (             id INTEGER PRIMARY KEY,             username TEXT UNIQUE,             password BLOB,             salt BLOB            )    \"\"\")",
-      "explanation": "This prevents SQL injection by using parameterized queries instead of string concatenation to create the query.",
+      "after": "conn.execute(\"\"\"CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password BINARY(64) DEFAULT NULL)\"\"\")",
+      "explanation": "This prevents SQL injection by using parameterized queries and ensures passwords are stored securely as binary data instead of plaintext.",
       "type": "ollama"
     },
     {
       "finding_title": "Weak Hashing Algorithm",
-      "severity": "CRITICAL",
+      "severity": "MEDIUM",
       "filepath": "demo_app\\app.py",
       "lineno": 62,
       "before": "def hash_password(password):\n    return hashlib.md5(password.encode()).hexdigest()",
       "after": "def hash_password(password):     return bcrypt.hashpw(password.encode(), bcrypt.gensalt())",
-      "explanation": "Bcrypt is a secure hashing algorithm that includes salting and key stretching, making it much more resistant to brute-force attacks than MD5.",
+      "explanation": "Bcrypt is a strong, adaptive hashing algorithm that provides better security against brute-force attacks compared to MD5.",
       "type": "ollama"
     },
     {
-      "finding_title": "Session Hijacking Vulnerability",
-      "severity": "CRITICAL",
+      "finding_title": "Session Hijacking Risk",
+      "severity": "LOW",
       "filepath": "demo_app\\app.py",
       "lineno": 66,
       "before": "def login_required(f):\n    @wraps(f)\n    def decorated(*args, **kwargs):\n        if \"user_id\" not in session:\n            return jsonify({\"error\": \"Authentication required\"}), 401\n        return f(*args, **kwargs)\n    return decorated",
-      "after": "def login_required(f):     @wraps(f)     def decorated(*args, **kwargs):         if \"user_id\" not in session:             return jsonify({\"error\": \"Authentication required\"}), 401",
-      "explanation": "This ensures that the user is authenticated before accessing protected routes and prevents session hijacking by checking for a valid 'user_id' token.",
+      "after": "@login_required\ndef login():     data     = request.getdependent on the user's session ID being securely generated and transmitted over HTTPS with appropriate headers set in place, which are missing from this snippet.",
+      "explanation": "",
       "type": "ollama"
     },
     {
-      "finding_title": "Insecure Random Number Generation",
-      "severity": "CRITICAL",
+      "finding_title": "Predictable Token Generation",
+      "severity": "LOW",
       "filepath": "demo_app\\app.py",
       "lineno": 75,
       "before": "def generate_reset_token(email):\n    token = str(random.randint(100000, 999999))\n    return token",
-      "after": "def generate_reset_token(email):     import secrets     return secrets.token_hex(16) + email[:8]",
-      "explanation": "The `secrets` module is designed to be used when the application needs a secure random number, which makes it resistant against guessing and attacks compared to using just `random`.",
-      "type": "ollama"
+      "after": "# See recommendation above",
+      "explanation": "Use a cryptographically secure method of generating unique and unpredictable tokens such as `secrets` module in Python which is designed for this purpose.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Authentication Bypass & Session Fixation Vulnerability",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app.py",
+      "lineno": 106,
+      "before": "def login():\n    data     = request.get_json()\n    username = data.get(\"username\", \"\")\n    password = data.get(\"password\", \"\")\n\n    conn  = get_db()\n    query = \"SELECT * FROM users WHERE username = '%s'\" % username\n    user  = conn.execute(query).fetchone()\n    conn.close()\n\n    if user and user[\"p...",
+      "after": "# See recommendation above",
+      "explanation": "Validate password against its stored hash (not plaintext) using `check_password` method and ensure that sessions are regenerated upon successful logins, not reused from previous requests or other users' sessions.",
+      "type": "rule"
     },
     {
       "finding_title": "Unsanitized User Input Reaches conn.execute()",
@@ -132,9 +142,9 @@
       "filepath": "demo_app\\app.py",
       "lineno": 199,
       "before": "conn.execute(\"SELECT username, email FROM users WHERE username LIKE '%\" + query + \"%'\")",
-      "after": "conn.execute(\"SELECT username, email FROM users WHERE username = %s\", (query,))",
-      "explanation": "This uses parameterized queries with placeholders for user input instead of string concatenation which prevents SQL injection by ensuring that the query is treated as data and not executable code.",
-      "type": "ollama"
+      "after": "# Validate and sanitize all user input before use\nvalue = escape(request.form.get(\"input\", \"\"))",
+      "explanation": "Sanitize all user input. Never pass raw user data to dangerous functions.",
+      "type": "rule"
     },
     {
       "finding_title": "Missing Security Header: X-Content-Type-Options",
@@ -142,9 +152,9 @@
       "filepath": "demo_app\\app.py",
       "lineno": null,
       "before": "",
-      "after": "X-Content-Type-Options: nosniff @app.before_first_request_functi",
-      "explanation": "This security header tells browsers to only follow MIME types explicitly declared by HTTP headers, preventing the browser from trying to 'sniff' content and potentially executing malicious scripts.",
-      "type": "ollama"
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['X-Content-Type-Options'] = 'nosniff'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-Content-Type-Options'] = '...'\n    return response",
+      "type": "rule"
     },
     {
       "finding_title": "Missing Security Header: X-Frame-Options",
@@ -152,9 +162,9 @@
       "filepath": "demo_app\\app.py",
       "lineno": null,
       "before": "",
-      "after": "X-Frame-Options: DENY @app.before_first_request_functi",
-      "explanation": "This security header prevents clickjacking attacks by telling browsers not to render this page in a `<frame>`, `<iframe>` or `<object>`.",
-      "type": "ollama"
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['X-Frame-Options'] = 'DENY' or 'SAMEORIGIN'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-Frame-Options'] = '...'\n    return response",
+      "type": "rule"
     },
     {
       "finding_title": "Missing Security Header: Strict-Transport-Security",
@@ -162,9 +172,9 @@
       "filepath": "demo_app\\app.py",
       "lineno": null,
       "before": "",
-      "after": "Strict-Transport-Security: max-age=31536000; includeSubDomains @app.before_first_request_functi",
-      "explanation": "This security header enforces secure (HTTPS) connections and applies to all subdomains, reducing the risk of protocol downgrade attacks where an attacker forces a connection over HTTP instead of HTTPS",
-      "type": "ollama"
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Strict-Transport-Security'] = '...'\n    return response",
+      "type": "rule"
     },
     {
       "finding_title": "Missing Security Header: Content-Security-Policy",
@@ -203,7 +213,7 @@
       "lineno": 63,
       "before": "return hashlib.md5(password.encode()).hexdigest()",
       "after": "return hashlib.sha256(password.encode()).hexdigest()",
-      "explanation": "SHA-256 is a stronger hashing algorithm than MD5, providing better security against brute force attacks.",
+      "explanation": "SHA-256 is a stronger hashing algorithm compared to MD5, which lacks collision resistance making it more secure against brute force attacks and rainbow table lookups.",
       "type": "ollama"
     },
     {
@@ -212,8 +222,8 @@
       "filepath": "demo_app\\app.py",
       "lineno": 76,
       "before": "token = str(random.randint(100000, 999999))",
-      "after": "token = ''.join(['%04d' % i for i in [random.randint(100000, 999999) for _ in range(6)]])",
-      "explanation": "Using a fixed length and format ensures that the generated tokens are consistent and secure against predictability attacks.",
+      "after": "token = ''.join(['%02d' % i for i in [random.randint(100000, 999999) for _ in range(6)]])",
+      "explanation": "Using a fixed length and format ensures that the generated tokens are consistent and securely randomized without relying on potentially unsafe functions like `str()`.",
       "type": "ollama"
     },
     {
@@ -223,7 +233,7 @@
       "lineno": 147,
       "before": "verify=False",
       "after": "verify=True",
-      "explanation": "Enabling SSL certificate verification is essential to prevent man-in-the-middle (MITM) attacks by validating the server's identity before establishing a connection.",
+      "explanation": "Enabling SSL certificate verification is crucial for establishing trust between the client and server, preventing man-in-the-middle attacks.",
       "type": "ollama"
     },
     {
@@ -341,7 +351,47 @@
       "severity": "HIGH",
       "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
       "lineno": null,
-      "before": "Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine\napp.secret_key = \"superSecretKey2024!\"",
+      "before": "Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings\napp.secret_key = \"superSecretKey2024!\"",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Password in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings\nDB_PASSWORD = \"admin123\"",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "OpenAI API Key in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings\nAPI_KEY = \"sk-abc123xyz789hardcoded\"",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "API Key in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings\nAPI_KEY = \"sk-abc123xyz789hardcoded\"",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "PostgreSQL Connection String with Credentials in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings\nCommit: b1cd13ae | initial commit (r'postgres://[^:]+:[^@]+@',",
       "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
       "explanation": "Rotate the exposed credential immediately and purge it from git history.",
       "type": "rule"
@@ -352,46 +402,6 @@
       "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
       "lineno": null,
       "before": "Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine\nADMIN_TOKEN = \"admin-token-abc123xyz\"",
-      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
-      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
-      "type": "rule"
-    },
-    {
-      "finding_title": "API Key in Git History",
-      "severity": "HIGH",
-      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
-      "lineno": null,
-      "before": "Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine\nSENDGRID_API_KEY = \"SG.xK9mP2nQvL8rT5wY\"",
-      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
-      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
-      "type": "rule"
-    },
-    {
-      "finding_title": "PostgreSQL Connection String with Credentials in Git History",
-      "severity": "HIGH",
-      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
-      "lineno": null,
-      "before": "Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine\n\"before\": \"Commit: b1cd13ae | initial commit\\n(r'postgres://[^:]+:[^@]+@',\",",
-      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
-      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
-      "type": "rule"
-    },
-    {
-      "finding_title": "OpenAI API Key in Git History",
-      "severity": "HIGH",
-      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
-      "lineno": null,
-      "before": "Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine\n\"before\": \"Commit: b1cd13ae | initial commit\\n\\\"code_snippet\\\": \\\"API_KEY = \\\\\\\"sk-abc123xyz789hardcoded\\\\\\\"\\\",\",",
-      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
-      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
-      "type": "rule"
-    },
-    {
-      "finding_title": "Password in Git History",
-      "severity": "HIGH",
-      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
-      "lineno": null,
-      "before": "Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine\nDB_PASSWORD = \"admin123\"",
       "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
       "explanation": "Rotate the exposed credential immediately and purge it from git history.",
       "type": "rule"

@@ -3,17 +3,17 @@
 ## Executive Summary
 
 - **Target:** `demo_app/`
-- **Total Findings:** 40
-- **Risk Score:** 259
+- **Total Findings:** 41
+- **Risk Score:** 244
 - **Risk Level:** CRITICAL RISK - Severe security flaws present. Do NOT deploy without remediation.
-- **Scan Duration:** 89.6s
+- **Scan Duration:** 93.18s
 
 ## Severity Breakdown
 
-- **CRITICAL:** 13
+- **CRITICAL:** 11
 - **HIGH:** 18
-- **MEDIUM:** 6
-- **LOW:** 3
+- **MEDIUM:** 7
+- **LOW:** 5
 
 ## Findings
 
@@ -96,7 +96,7 @@ result     = eval(expression)
 - **Line:** 35
 - **CWE:** CWE-847
 
-**Description:** The function directly interpolates user input into an SQL statement without sanitization, allowing for potential injection attacks.
+**Description:** The function directly interpolates user input into an SQL query without sanitization, allowing for potential injection attacks.
 
 **Code Snippet:**
 ```python
@@ -112,74 +112,39 @@ def init_db():
             role TEXT...
 ```
 
-**Recommendation:** Use parameterized queries or prepared statements to safely handle inputs in the database operation.
+**Recommendation:** Use parameterized queries to prevent SQL injections and ensure that the database operations are secure against malicious inputs.
 
 ---
 
-### 6. [CRITICAL] Weak Hashing Algorithm
+### 6. [CRITICAL] Authentication Bypass & Session Fixation Vulnerability
 
 - **Agent:** Agent B - Auth Logic Auditor (LLM)
 - **File:** `demo_app\app.py`
-- **Line:** 62
-- **CWE:** CWE-337
+- **Line:** 106
+- **CWE:** CWE-261 & CWE-503
 
-**Description:** The function uses MD5 for password hashing, which is considered cryptographically broken and unsuitable for passwords due to its vulnerability to brute force attacks.
-
-**Code Snippet:**
-```python
-def hash_password(password):
-    return hashlib.md5(password.encode()).hexdigest()
-```
-
-**Recommendation:** Replace the md5 with a strong hash algorithm like bcrypt or Argon2 that are designed specifically for securing passwords.
-
----
-
-### 7. [CRITICAL] Session Hijacking Vulnerability
-
-- **Agent:** Agent B - Auth Logic Auditor (LLM)
-- **File:** `demo_app\app.py`
-- **Line:** 66
-- **CWE:** CWE-703
-
-**Description:** The function relies on session cookies without checking the integrity of these tokens, making it susceptible to hijacking.
+**Description:** The function compares plaintext passwords with hashed ones, and does not validate the user's session before logging in. This allows for potential authentication bypass or session fixation attacks if an attacker can manipulate the login process to reuse a valid session ID after it has been compromised.
 
 **Code Snippet:**
 ```python
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user_id" not in session:
-            return jsonify({"error": "Authentication required"}), 401
-        return f(*args, **kwargs)
-    return decorated
+def login():
+    data     = request.get_json()
+    username = data.get("username", "")
+    password = data.get("password", "")
+
+    conn  = get_db()
+    query = "SELECT * FROM users WHERE username = '%s'" % username
+    user  = conn.execute(query).fetchone()
+    conn.close()
+
+    if user and user["p...
 ```
 
-**Recommendation:** Implement secure cookie attributes like HttpOnly and Secure flags along with token binding or validation mechanisms such as JWTs (JSON Web Tokens).
+**Recommendation:** Validate password against its stored hash (not plaintext) using `check_password` method and ensure that sessions are regenerated upon successful logins, not reused from previous requests or other users' sessions.
 
 ---
 
-### 8. [CRITICAL] Insecure Random Number Generation
-
-- **Agent:** Agent B - Auth Logic Auditor (LLM)
-- **File:** `demo_app\app.py`
-- **Line:** 75
-- **CWE:** CWE-26]
-
-**Description:** The function uses a predictable random number generator for token creation, which can be easily guessed or brute forced.
-
-**Code Snippet:**
-```python
-def generate_reset_token(email):
-    token = str(random.randint(100000, 999999))
-    return token
-```
-
-**Recommendation:** Use a cryptographically secure pseudorandom number generator (CSPRNG) to generate tokens that are unpredictable and resistant against guessing attacks.
-
----
-
-### 9. [CRITICAL] Vulnerable Dependency: Pillow
+### 7. [CRITICAL] Vulnerable Dependency: Pillow
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `demo_app\requirements.txt`
@@ -197,7 +162,7 @@ Pillow==9.0.0
 
 ---
 
-### 10. [CRITICAL] Vulnerable Dependency: django
+### 8. [CRITICAL] Vulnerable Dependency: django
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -215,7 +180,7 @@ django==2.2.0
 
 ---
 
-### 11. [CRITICAL] Vulnerable Dependency: pillow
+### 9. [CRITICAL] Vulnerable Dependency: pillow
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -233,7 +198,7 @@ pillow==8.0.0
 
 ---
 
-### 12. [CRITICAL] Vulnerable Dependency: pyyaml
+### 10. [CRITICAL] Vulnerable Dependency: pyyaml
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -251,7 +216,7 @@ pyyaml==5.3
 
 ---
 
-### 13. [CRITICAL] SSL Certificate Verification Disabled
+### 11. [CRITICAL] SSL Certificate Verification Disabled
 
 - **Agent:** Agent H - Cryptography Auditor
 - **File:** `demo_app\app.py`
@@ -272,7 +237,7 @@ verify=False
 
 ---
 
-### 14. [HIGH] SQL Injection Risk - String Concatenation in Query
+### 12. [HIGH] SQL Injection Risk - String Concatenation in Query
 
 - **Agent:** Agent A - Pattern Detector
 - **File:** `demo_app\app.py`
@@ -290,7 +255,7 @@ verify=False
 
 ---
 
-### 15. [HIGH] SQL Injection Risk - String Concatenation in Query
+### 13. [HIGH] SQL Injection Risk - String Concatenation in Query
 
 - **Agent:** Agent A - Pattern Detector
 - **File:** `demo_app\app.py`
@@ -308,7 +273,7 @@ users = conn.execute("SELECT * FROM users").fetchall()
 
 ---
 
-### 16. [HIGH] Unsanitized User Input Reaches conn.execute()
+### 14. [HIGH] Unsanitized User Input Reaches conn.execute()
 
 - **Agent:** Agent C - Data Flow Analyzer
 - **File:** `demo_app\app.py`
@@ -326,7 +291,7 @@ conn.execute("SELECT username, email FROM users WHERE username LIKE '%" + query 
 
 ---
 
-### 17. [HIGH] Vulnerable Dependency: flask
+### 15. [HIGH] Vulnerable Dependency: flask
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -344,7 +309,7 @@ flask==0.12.3
 
 ---
 
-### 18. [HIGH] Vulnerable Dependency: sqlalchemy
+### 16. [HIGH] Vulnerable Dependency: sqlalchemy
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -362,7 +327,7 @@ sqlalchemy==1.3.0
 
 ---
 
-### 19. [HIGH] Vulnerable Dependency: werkzeug
+### 17. [HIGH] Vulnerable Dependency: werkzeug
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -380,7 +345,7 @@ werkzeug==1.0.0
 
 ---
 
-### 20. [HIGH] Vulnerable Dependency: numpy
+### 18. [HIGH] Vulnerable Dependency: numpy
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -398,7 +363,7 @@ numpy
 
 ---
 
-### 21. [HIGH] Vulnerable Dependency: urllib3
+### 19. [HIGH] Vulnerable Dependency: urllib3
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -416,18 +381,18 @@ urllib3==1.25.0
 
 ---
 
-### 22. [HIGH] Secret Key in Git History
+### 20. [HIGH] Secret Key in Git History
 
 - **Agent:** Agent F - Git History Scanner
 - **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
 - **Line:** None
 - **CWE:** CWE-312
 
-**Description:** A potential secret was found in commit 1f04c788 (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+**Description:** A potential secret was found in commit 5371eacf (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
 
 **Code Snippet:**
 ```python
-Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine
+Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings
 app.secret_key = "superSecretKey2024!"
 ```
 
@@ -438,7 +403,95 @@ app.secret_key = "superSecretKey2024!"
 
 ---
 
-### 23. [HIGH] Auth Token in Git History
+### 21. [HIGH] Password in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit 5371eacf (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings
+DB_PASSWORD = "admin123"
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 22. [HIGH] OpenAI API Key in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit 5371eacf (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings
+API_KEY = "sk-abc123xyz789hardcoded"
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 23. [HIGH] API Key in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit 5371eacf (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings
+API_KEY = "sk-abc123xyz789hardcoded"
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 24. [HIGH] PostgreSQL Connection String with Credentials in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit 5371eacf (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: 5371eacf | feat: OWASP Top 10 2021 mapping on all findings
+Commit: b1cd13ae | initial commit (r'postgres://[^:]+:[^@]+@',
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 25. [HIGH] Auth Token in Git History
 
 - **Agent:** Agent F - Git History Scanner
 - **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
@@ -460,95 +513,7 @@ ADMIN_TOKEN = "admin-token-abc123xyz"
 
 ---
 
-### 24. [HIGH] API Key in Git History
-
-- **Agent:** Agent F - Git History Scanner
-- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
-- **Line:** None
-- **CWE:** CWE-312
-
-**Description:** A potential secret was found in commit 1f04c788 (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
-
-**Code Snippet:**
-```python
-Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine
-SENDGRID_API_KEY = "SG.xK9mP2nQvL8rT5wY"
-```
-
-**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
-2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
-3. Force-push the cleaned history.
-4. Use environment variables for all secrets going forward.
-
----
-
-### 25. [HIGH] PostgreSQL Connection String with Credentials in Git History
-
-- **Agent:** Agent F - Git History Scanner
-- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
-- **Line:** None
-- **CWE:** CWE-312
-
-**Description:** A potential secret was found in commit 1f04c788 (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
-
-**Code Snippet:**
-```python
-Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine
-"before": "Commit: b1cd13ae | initial commit\n(r'postgres://[^:]+:[^@]+@',",
-```
-
-**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
-2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
-3. Force-push the cleaned history.
-4. Use environment variables for all secrets going forward.
-
----
-
-### 26. [HIGH] OpenAI API Key in Git History
-
-- **Agent:** Agent F - Git History Scanner
-- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
-- **Line:** None
-- **CWE:** CWE-312
-
-**Description:** A potential secret was found in commit 1f04c788 (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
-
-**Code Snippet:**
-```python
-Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine
-"before": "Commit: b1cd13ae | initial commit\n\"code_snippet\": \"API_KEY = \\\"sk-abc123xyz789hardcoded\\\"\",",
-```
-
-**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
-2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
-3. Force-push the cleaned history.
-4. Use environment variables for all secrets going forward.
-
----
-
-### 27. [HIGH] Password in Git History
-
-- **Agent:** Agent F - Git History Scanner
-- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
-- **Line:** None
-- **CWE:** CWE-312
-
-**Description:** A potential secret was found in commit 1f04c788 (2026-02-27) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
-
-**Code Snippet:**
-```python
-Commit: 1f04c788 | feat: 9-agent AI security auditor with auto-fix engine
-DB_PASSWORD = "admin123"
-```
-
-**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
-2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
-3. Force-push the cleaned history.
-4. Use environment variables for all secrets going forward.
-
----
-
-### 28. [HIGH] Missing Security Header: Strict-Transport-Security
+### 26. [HIGH] Missing Security Header: Strict-Transport-Security
 
 - **Agent:** Agent G - CORS & Headers Auditor
 - **File:** `demo_app\app.py`
@@ -568,7 +533,7 @@ def set_security_headers(response):
 
 ---
 
-### 29. [HIGH] Missing Security Header: Content-Security-Policy
+### 27. [HIGH] Missing Security Header: Content-Security-Policy
 
 - **Agent:** Agent G - CORS & Headers Auditor
 - **File:** `demo_app\app.py`
@@ -588,7 +553,7 @@ def set_security_headers(response):
 
 ---
 
-### 30. [HIGH] Weak Hash Algorithm: MD5
+### 28. [HIGH] Weak Hash Algorithm: MD5
 
 - **Agent:** Agent H - Cryptography Auditor
 - **File:** `demo_app\app.py`
@@ -609,7 +574,7 @@ For passwords, use bcrypt, argon2, or PBKDF2 via passlib:
 
 ---
 
-### 31. [HIGH] Insecure Random - random.randint()
+### 29. [HIGH] Insecure Random - random.randint()
 
 - **Agent:** Agent H - Cryptography Auditor
 - **File:** `demo_app\app.py`
@@ -631,7 +596,7 @@ token = str(random.randint(100000, 999999))
 
 ---
 
-### 32. [MEDIUM] Debug Mode Enabled
+### 30. [MEDIUM] Debug Mode Enabled
 
 - **Agent:** Agent A - Pattern Detector
 - **File:** `demo_app\app.py`
@@ -649,7 +614,7 @@ app.config["DEBUG"] = True
 
 ---
 
-### 33. [MEDIUM] Debug Mode Enabled
+### 31. [MEDIUM] Debug Mode Enabled
 
 - **Agent:** Agent A - Pattern Detector
 - **File:** `demo_app\app.py`
@@ -667,7 +632,26 @@ app.run(debug=True, host="0.0.0.0", port=5000)
 
 ---
 
-### 34. [MEDIUM] Vulnerable Dependency: requests
+### 32. [MEDIUM] Weak Hashing Algorithm
+
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app.py`
+- **Line:** 62
+- **CWE:** CWE-337
+
+**Description:** The function uses MD5 for hashing passwords, which is considered insecure and vulnerable to brute force attacks due to its speed.
+
+**Code Snippet:**
+```python
+def hash_password(password):
+    return hashlib.md5(password.encode()).hexdigest()
+```
+
+**Recommendation:** Replace the use of MD5 with a more secure algorithm like bcrypt or Argon2 that are designed specifically for password storage.
+
+---
+
+### 33. [MEDIUM] Vulnerable Dependency: requests
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -685,7 +669,7 @@ requests==2.18.0
 
 ---
 
-### 35. [MEDIUM] Vulnerable Dependency: jinja2
+### 34. [MEDIUM] Vulnerable Dependency: jinja2
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -703,7 +687,7 @@ jinja2==2.10.0
 
 ---
 
-### 36. [MEDIUM] Missing Security Header: X-Content-Type-Options
+### 35. [MEDIUM] Missing Security Header: X-Content-Type-Options
 
 - **Agent:** Agent G - CORS & Headers Auditor
 - **File:** `demo_app\app.py`
@@ -723,7 +707,7 @@ def set_security_headers(response):
 
 ---
 
-### 37. [MEDIUM] Missing Security Header: X-Frame-Options
+### 36. [MEDIUM] Missing Security Header: X-Frame-Options
 
 - **Agent:** Agent G - CORS & Headers Auditor
 - **File:** `demo_app\app.py`
@@ -743,7 +727,51 @@ def set_security_headers(response):
 
 ---
 
-### 38. [LOW] Unpinned Dependency: numpy
+### 37. [LOW] Session Hijacking Risk
+
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app.py`
+- **Line:** 66
+- **CWE:** CWE-706
+
+**Description:** The function relies on session cookies without checking the integrity of user sessions, which could lead to Cross-Site Request Forgery (CSRF) attacks.
+
+**Code Snippet:**
+```python
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    return decorated
+```
+
+**Recommendation:** Implement CSRF tokens and validate them with each state-changing request within a protected route decorator like `@login_required`.
+
+---
+
+### 38. [LOW] Predictable Token Generation
+
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app.py`
+- **Line:** 75
+- **CWE:** CWE-261
+
+**Description:** The function generates reset tokens using predictable random numbers, making it easier for attackers to guess or brute force the token.
+
+**Code Snippet:**
+```python
+def generate_reset_token(email):
+    token = str(random.randint(100000, 999999))
+    return token
+```
+
+**Recommendation:** Use a cryptographically secure method of generating unique and unpredictable tokens such as `secrets` module in Python which is designed for this purpose.
+
+---
+
+### 39. [LOW] Unpinned Dependency: numpy
 
 - **Agent:** Agent E - Dependency Scanner
 - **File:** `requirements.txt`
@@ -761,7 +789,7 @@ numpy
 
 ---
 
-### 39. [LOW] Missing Security Header: X-XSS-Protection
+### 40. [LOW] Missing Security Header: X-XSS-Protection
 
 - **Agent:** Agent G - CORS & Headers Auditor
 - **File:** `demo_app\app.py`
@@ -781,7 +809,7 @@ def set_security_headers(response):
 
 ---
 
-### 40. [LOW] Missing Security Header: Referrer-Policy
+### 41. [LOW] Missing Security Header: Referrer-Policy
 
 - **Agent:** Agent G - CORS & Headers Auditor
 - **File:** `demo_app\app.py`

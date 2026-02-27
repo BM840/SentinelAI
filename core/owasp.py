@@ -82,7 +82,11 @@ OWASP_RULES = [
       "weak hash", "md5", "sha1", "sha-1", "weak cipher", "ecb mode",
       "insecure random", "predictable random", "weak random",
       "plaintext password", "password stored", "unencrypted",
-      "ssl", "verify=false", "certificate", "tls"], "A02"),
+      "ssl", "verify=false", "certificate", "tls",
+      # Git history secrets
+      "in git history", "connection string", "password in git",
+      "secret in git", "aws key", "database url", "credentials in git",
+      "token in git", "key in git"], "A02"),
 
     # A07 — Auth Failures
     (["login bypass", "authentication bypass", "auth bypass",

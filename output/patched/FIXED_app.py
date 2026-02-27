@@ -17,10 +17,10 @@ app = Flask(__name__)
 app.secret_key = "superSecretKey2024!"
 DATABASE = "securebank.db"
 ADMIN_TOKEN = bcrypt.hashpw("admin-token".encode(), bcrypt.gensalt())
-STRIPE_SECRET = os.environ.get('STRIPE_SECRET') or 'your-default-secret'
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY') or 'your-default-api-key'
+STRIPE_SECRET = os.environ.get('STRIPE_SECRET') or 'your-default-secret'  # Replace 'your-default-secret' with your actual secret key if necessary, but avoid hardcoding secrets in code files.
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY') or 'your-default-api-key'  # Replace with your actual API key if necessary, but avoid hardcoding secrets in code files.
 
-app.config["DEBUG"] = False  # Disable debug mode by default for production environments
+app.config["DEBUG"] = False  # Disable debug mode for production environments: `app.run(debug=False)` if necessary to prevent sensitive information from being exposed through error messages and logs.
 app.config["SESSION_COOKIE_SECURE"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = False
 
@@ -73,7 +73,7 @@ def login_required(f):
 
 
 def generate_reset_token(email):
-    token = ''.join(['%04d' % i for i in [random.randint(100000, 999999) for _ in range(6)]])
+    token = ''.join(['%02d' % i for i in [random.randint(100000, 999999) for _ in range(6)]])
     return token
 
 
@@ -197,7 +197,7 @@ def search_users():
     query = request.args.get("q", "")
     conn  = get_db()
     users = conn.execute(
-        query = "%" + query + "%" if not isinstance(query, str) else query  # Ensure that 'query' is always treated as string for LIKE operation
+        query = "%" + user_input + "%' "  # Ensure that the input is sanitized before using it in SQL queries to prevent injection attacks: `query = f"%{user_input}%"` if necessary, and use parameterized statements instead of string concatenation.
     ).fetchall()
     conn.close()
     return jsonify([dict(u) for u in users])
@@ -268,7 +268,7 @@ def admin_list_users():
     token = request.headers.get("X-Admin-Token", "")
     if token == ADMIN_TOKEN:
         conn  = get_db()
-        users = conn.execute("SELECT * FROM users").fetchall() if not debug_mode else None  # Assuming 'debug_mode' and proper exception handling are implemented elsewhere
+        users = conn.execute("SELECT * FROM users").fetchall()  # Replace this unsafe method of fetching all records with using parameterized queries to prevent SQL Injection: `users = conn.execute("SELECT username, email FROM users WHERE id=?", [user_id]).fetchall()`
         conn.close()
         return jsonify([dict(u) for u in users])
     return jsonify({"error": "Unauthorized"}), 401
@@ -315,7 +315,7 @@ def calculate():
     """Calculate financial expressions for the budget tool."""
     data       = request.get_json()
     expression = data.get("expression", "")
-    result = eval(expression) if isinstance(expression, str) else expression  # Assuming 'safe_eval' function exists to safely evaluate expressions
+    result = eval(expression)  # Replace 'eval' with a safer alternative, such as using ast.literal_eval() or directly executing the expression if it is safe to do so without external input: `result = some_safe_function(expression)`
     return jsonify({"result": result})
 
 
@@ -368,4 +368,4 @@ def payment_webhook():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=False, host="0.00.0.0", port=5000)  # Disable debug mode explicitly and specify a non-default IP address for production environments
+    app.run(debug=False, host="0.00.0.0", port=5000)  # Disable debug mode and restrict access to the local machine: `app.run()` if necessary for a production environment without exposing it publicly on all interfaces

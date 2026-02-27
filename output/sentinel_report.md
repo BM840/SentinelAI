@@ -2,32 +2,33 @@
 
 ## Executive Summary
 
-- **Target:** `sample_app/`
-- **Total Findings:** 17
-- **Risk Score:** 104
+- **Target:** `demo_app/`
+- **Total Findings:** 39
+- **Risk Score:** 257
 - **Risk Level:** CRITICAL RISK - Severe security flaws present. Do NOT deploy without remediation.
-- **Scan Duration:** 0.07s
+- **Scan Duration:** 107.79s
 
 ## Severity Breakdown
 
-- **CRITICAL:** 5
-- **HIGH:** 6
+- **CRITICAL:** 14
+- **HIGH:** 16
 - **MEDIUM:** 6
+- **LOW:** 3
 
 ## Findings
 
 ### 1. [CRITICAL] Hardcoded Secret
 
 - **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 12
+- **File:** `demo_app\app (1).py`
+- **Line:** 19
 - **CWE:** CWE-798
 
-**Description:** Potential hardcoded credential or secret detected on line 12.
+**Description:** Potential hardcoded credential or secret detected on line 19.
 
 **Code Snippet:**
 ```python
-DB_PASSWORD = "admin123"
+ADMIN_TOKEN = "admin-token-abc123xyz"
 ```
 
 **Recommendation:** Use environment variables or a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager) instead of hardcoding secrets.
@@ -37,33 +38,33 @@ DB_PASSWORD = "admin123"
 ### 2. [CRITICAL] Hardcoded Secret
 
 - **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 13
+- **File:** `demo_app\app (1).py`
+- **Line:** 20
 - **CWE:** CWE-798
 
-**Description:** Potential hardcoded credential or secret detected on line 13.
+**Description:** Potential hardcoded credential or secret detected on line 20.
 
 **Code Snippet:**
 ```python
-API_KEY = "sk-abc123xyz789hardcoded"
+STRIPE_SECRET = "sk_live_4eKoV8mNpQrL92xZ"
 ```
 
 **Recommendation:** Use environment variables or a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager) instead of hardcoding secrets.
 
 ---
 
-### 3. [CRITICAL] Exposed API Key
+### 3. [CRITICAL] Hardcoded Secret
 
 - **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 13
+- **File:** `demo_app\app (1).py`
+- **Line:** 21
 - **CWE:** CWE-798
 
-**Description:** Potential hardcoded credential or secret detected on line 13.
+**Description:** Potential hardcoded credential or secret detected on line 21.
 
 **Code Snippet:**
 ```python
-API_KEY = "sk-abc123xyz789hardcoded"
+SENDGRID_API_KEY = "SG.xK9mP2nQvL8rT5wY"
 ```
 
 **Recommendation:** Use environment variables or a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager) instead of hardcoding secrets.
@@ -73,273 +74,720 @@ API_KEY = "sk-abc123xyz789hardcoded"
 ### 4. [CRITICAL] Use of eval() Detected
 
 - **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 79
+- **File:** `demo_app\app (1).py`
+- **Line:** 318
 - **CWE:** CWE-95
 
-**Description:** eval() on line 79 can execute arbitrary code if user input is passed.
+**Description:** eval() on line 318 can execute arbitrary code if user input is passed.
 
 **Code Snippet:**
 ```python
-result = eval(data)
+result     = eval(expression)
 ```
 
 **Recommendation:** Avoid eval() entirely. Use safe alternatives like ast.literal_eval() for data parsing, or redesign the logic.
 
 ---
 
-### 5. [CRITICAL] Login Bypass - Always-True Condition
+### 5. [CRITICAL] SQL Injection
 
-- **Agent:** Agent B - Auth Logic Auditor (Ollama) [Heuristic]
-- **File:** `sample_app\app (1).py`
-- **Line:** 52
-- **CWE:** CWE-287
-
-**Description:** Function 'admin_panel' contains 'or True' which bypasses authentication.
-
-**Code Snippet:**
-```python
-if role == "admin" or True:
-```
-
-**Recommendation:** Remove always-true conditions.
-
----
-
-### 6. [HIGH] SQL Injection Risk - String Concatenation in Query
-
-- **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 42
-- **CWE:** CWE-89
-
-**Description:** Line 42 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.
-
-**Code Snippet:**
-```python
-query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'"
-```
-
-**Recommendation:** Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.
-
----
-
-### 7. [HIGH] SQL Injection Risk - String Concatenation in Query
-
-- **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 69
-- **CWE:** CWE-89
-
-**Description:** Line 69 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.
-
-**Code Snippet:**
-```python
-query = f"SELECT * FROM products WHERE name LIKE '%{term}%'"
-```
-
-**Recommendation:** Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.
-
----
-
-### 8. [HIGH] SQL Injection Risk - String Concatenation in Query
-
-- **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 91
-- **CWE:** CWE-89
-
-**Description:** Line 91 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.
-
-**Code Snippet:**
-```python
-cursor.execute("UPDATE users SET password = '" + new_pass + "' WHERE id = " + user_id)
-```
-
-**Recommendation:** Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.
-
----
-
-### 9. [HIGH] Plaintext Password Comparison
-
-- **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app (1).py`
 - **Line:** 35
-- **CWE:** CWE-256
+- **CWE:** CWE-847
 
-**Description:** Line 35 compares a password in plaintext. Passwords should be hashed before storage and comparison.
-
-**Code Snippet:**
-```python
-if username == ADMIN_USER and password == ADMIN_PASS:
-```
-
-**Recommendation:** Use bcrypt, argon2, or PBKDF2 for password hashing. Never store or compare plaintext passwords.
-
----
-
-### 10. [HIGH] Unsanitized User Input Reaches eval()
-
-- **Agent:** Agent C - Data Flow Analyzer
-- **File:** `sample_app\app (1).py`
-- **Line:** 79
-- **CWE:** CWE-20
-
-**Description:** In function 'eval_endpoint', user-controlled variable(s) ['data'] flow directly into 'eval()' without apparent sanitization.
+**Description:** The function directly interpolates user input into an SQL statement without sanitization, allowing for potential injection attacks.
 
 **Code Snippet:**
 ```python
-eval(data)
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            email TEXT,
+            balance REAL DEFAULT 1000.0,
+            role TEXT...
 ```
 
-**Recommendation:** Sanitize and validate all user-supplied data before passing to database queries, OS commands, or eval-like functions. Use parameterized queries for SQL.
+**Recommendation:** Use parameterized queries to prevent direct execution of malicious SQL code within the database query string. Replace raw SQL with a safe method like `cursor.execute(sql_query, params)`.
 
 ---
 
-### 11. [HIGH] Unsanitized User Input Reaches cursor.execute()
+### 6. [CRITICAL] Weak Hashing Algorithm
 
-- **Agent:** Agent C - Data Flow Analyzer
-- **File:** `sample_app\app (1).py`
-- **Line:** 91
-- **CWE:** CWE-20
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app (1).py`
+- **Line:** 62
+- **CWE:** CWE-346
 
-**Description:** In function 'reset_password', user-controlled variable(s) ['user_id', 'new_pass'] flow directly into 'cursor.execute()' without apparent sanitization.
+**Description:** The function uses MD5 for password hashing which is considered insecure and vulnerable to brute force attacks.
 
 **Code Snippet:**
 ```python
-cursor.execute("UPDATE users SET password = '" + new_pass + "' WHERE id = " + user_id)
+def hash_password(password):
+    return hashlib.md5(password.encode()).hexdigest()
 ```
 
-**Recommendation:** Sanitize and validate all user-supplied data before passing to database queries, OS commands, or eval-like functions. Use parameterized queries for SQL.
+**Recommendation:** Replace the use of `hashlib.md5` with a more secure algorithm like bcrypt or Argon2, as they are designed specifically for password storage and include built-in salting mechanisms.
 
 ---
 
-### 12. [MEDIUM] Debug Mode Enabled
+### 7. [CRITICAL] Session Hijacking Risk
 
-- **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 16
-- **CWE:** CWE-215
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app (1).py`
+- **Line:** 66
+- **CWE:** CWE-739
 
-**Description:** Debug mode is enabled on line 16. In production, this exposes stack traces, internal state, and may enable the interactive debugger.
+**Description:** The function does not verify the integrity of session tokens, allowing for potential hijacking if a user's cookies are stolen.
 
 **Code Snippet:**
 ```python
-DEBUG = True
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    return decorated
 ```
 
-**Recommendation:** Disable debug mode in production. Use environment-based configuration (e.g., DEBUG = os.getenv('DEBUG', 'False') == 'True').
+**Recommendation:** Implement token binding or use secure and HttpOnly flags on sessions to mitigate against cross-site request forgery (CSRF) attacks where an attacker can steal session cookies from the victim’s browser.
 
 ---
 
-### 13. [MEDIUM] Debug Mode Enabled
+### 8. [CRITICAL] Password Hash Comparison Error Handling
 
-- **Agent:** Agent A - Pattern Detector
-- **File:** `sample_app\app (1).py`
-- **Line:** 17
-- **CWE:** CWE-215
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app (1).py`
+- **Line:** 106
+- **CWE:** CWE-269
 
-**Description:** Debug mode is enabled on line 17. In production, this exposes stack traces, internal state, and may enable the interactive debugger.
-
-**Code Snippet:**
-```python
-app.config['DEBUG'] = True
-```
-
-**Recommendation:** Disable debug mode in production. Use environment-based configuration (e.g., DEBUG = os.getenv('DEBUG', 'False') == 'True').
-
----
-
-### 14. [MEDIUM] Unauthenticated Route Handler
-
-- **Agent:** Agent B - Auth Logic Auditor (Ollama) [Heuristic]
-- **File:** `sample_app\app (1).py`
-- **Line:** 30
-- **CWE:** CWE-306
-
-**Description:** Route 'login' does not verify authentication.
+**Description:** The function compares plain passwords with hashed ones without handling potential exceptions, which could lead to information leakage or denial of service.
 
 **Code Snippet:**
 ```python
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    data     = request.get_json()
+    username = data.get("username", "")
+    password = data.get("password", "")
 
-    # Vulnerability: Plaintext password comparison
-    if username == ADMIN_USER and password == A
+    conn  = get_db()
+    query = "SELECT * FROM users WHERE username = '%s'" % username
+    user  = conn.execute(query).fetchone()
+    conn.close()
+
+    if user and user["p...
 ```
 
-**Recommendation:** Add authentication checks.
+**Recommendation:** Implement proper exception handling around the password comparison and ensure that no sensitive error details are exposed in case of a failed login attempt due to incorrect credentials.
 
 ---
 
-### 15. [MEDIUM] Unauthenticated Route Handler
+### 9. [CRITICAL] Sensitive Data Exposure via Email Content
 
-- **Agent:** Agent B - Auth Logic Auditor (Ollama) [Heuristic]
-- **File:** `sample_app\app (1).py`
+- **Agent:** Agent B - Auth Logic Auditor (LLM)
+- **File:** `demo_app\app (1).py`
+- **Line:** 132
+- **CWE:** CWE-269
+
+**Description:** The function sends the reset token directly within an email body, which could be read by unauthorized parties if intercepted.
+
+**Code Snippet:**
+```python
+def forgot_password():
+    data  = request.get_json()
+    email = data.get("email", "")
+
+    token = generate_reset_token(email)
+
+    # Send reset email via external service
+    response = requests.post(
+        "https://api.sendgrid.com/v3/mail/send",
+        headers={"Authorization": f"Bearer {SEN...
+```
+
+**Recommendation:** Ensure sensitive data like tokens are not included in plain text emails and consider using a secure channel for sending such information or implementing additional verification steps to confirm legitimate requests before processing them further.
+
+---
+
+### 10. [CRITICAL] Vulnerable Dependency: Pillow
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `demo_app\requirements.txt`
+- **Line:** 12
+- **CWE:** CWE-1035
+
+**Description:** Pillow==9.0.0 may be affected by CVE-2022-22817: Pillow PIL.ImageMath.eval allows arbitrary code execution.
+
+**Code Snippet:**
+```python
+Pillow==9.0.0
+```
+
+**Recommendation:** Upgrade Pillow to the latest patched version. Run: pip install --upgrade Pillow
+
+---
+
+### 11. [CRITICAL] Vulnerable Dependency: django
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 2
+- **CWE:** CWE-1035
+
+**Description:** django==2.2.0 may be affected by CVE-2022-28346: Django SQL injection vulnerability in QuerySet.annotate().
+
+**Code Snippet:**
+```python
+django==2.2.0
+```
+
+**Recommendation:** Upgrade django to the latest patched version. Run: pip install --upgrade django
+
+---
+
+### 12. [CRITICAL] Vulnerable Dependency: pillow
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 4
+- **CWE:** CWE-1035
+
+**Description:** pillow==8.0.0 may be affected by CVE-2022-22817: Pillow PIL.ImageMath.eval allows arbitrary code execution.
+
+**Code Snippet:**
+```python
+pillow==8.0.0
+```
+
+**Recommendation:** Upgrade pillow to the latest patched version. Run: pip install --upgrade pillow
+
+---
+
+### 13. [CRITICAL] Vulnerable Dependency: pyyaml
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 5
+- **CWE:** CWE-1035
+
+**Description:** pyyaml==5.3 may be affected by CVE-2020-14343: PyYAML arbitrary code execution via yaml.load() without Loader.
+
+**Code Snippet:**
+```python
+pyyaml==5.3
+```
+
+**Recommendation:** Upgrade pyyaml to the latest patched version. Run: pip install --upgrade pyyaml
+
+---
+
+### 14. [CRITICAL] SSL Certificate Verification Disabled
+
+- **Agent:** Agent H - Cryptography Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** 147
+- **CWE:** CWE-295
+
+**Description:** Disabling SSL certificate verification exposes the app to man-in-the-middle attacks.
+
+**Code Snippet:**
+```python
+verify=False
+```
+
+**Recommendation:** Use ssl.PROTOCOL_TLS_CLIENT with ssl.create_default_context():
+  import ssl
+  ctx = ssl.create_default_context()
+  # This enforces TLS 1.2+, certificate verification, and hostname checking
+
+---
+
+### 15. [HIGH] SQL Injection Risk - String Concatenation in Query
+
+- **Agent:** Agent A - Pattern Detector
+- **File:** `demo_app\app (1).py`
+- **Line:** 200
+- **CWE:** CWE-89
+
+**Description:** Line 200 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.
+
+**Code Snippet:**
+```python
+"SELECT username, email FROM users WHERE username LIKE '%" + query + "%'"
+```
+
+**Recommendation:** Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.
+
+---
+
+### 16. [HIGH] SQL Injection Risk - String Concatenation in Query
+
+- **Agent:** Agent A - Pattern Detector
+- **File:** `demo_app\app (1).py`
+- **Line:** 271
+- **CWE:** CWE-89
+
+**Description:** Line 271 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.
+
+**Code Snippet:**
+```python
+users = conn.execute("SELECT * FROM users").fetchall()
+```
+
+**Recommendation:** Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.
+
+---
+
+### 17. [HIGH] Unsanitized User Input Reaches conn.execute()
+
+- **Agent:** Agent C - Data Flow Analyzer
+- **File:** `demo_app\app (1).py`
+- **Line:** 199
+- **CWE:** CWE-20
+
+**Description:** In function 'search_users', user-controlled variable(s) ['query'] flow directly into 'conn.execute()' without apparent sanitization.
+
+**Code Snippet:**
+```python
+conn.execute("SELECT username, email FROM users WHERE username LIKE '%" + query + "%'")
+```
+
+**Recommendation:** Sanitize and validate all user-supplied data before passing to database queries, OS commands, or eval-like functions. Use parameterized queries for SQL.
+
+---
+
+### 18. [HIGH] Vulnerable Dependency: flask
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 1
+- **CWE:** CWE-1035
+
+**Description:** flask==0.12.3 may be affected by CVE-2018-1000656: Flask before 0.12.5 is vulnerable to Denial of Service via malicious JSON data.
+
+**Code Snippet:**
+```python
+flask==0.12.3
+```
+
+**Recommendation:** Upgrade flask to the latest patched version. Run: pip install --upgrade flask
+
+---
+
+### 19. [HIGH] Vulnerable Dependency: sqlalchemy
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 6
+- **CWE:** CWE-1035
+
+**Description:** sqlalchemy==1.3.0 may be affected by CVE-2019-7164: SQLAlchemy SQL injection via order_by() parameter.
+
+**Code Snippet:**
+```python
+sqlalchemy==1.3.0
+```
+
+**Recommendation:** Upgrade sqlalchemy to the latest patched version. Run: pip install --upgrade sqlalchemy
+
+---
+
+### 20. [HIGH] Vulnerable Dependency: werkzeug
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 8
+- **CWE:** CWE-1035
+
+**Description:** werkzeug==1.0.0 may be affected by CVE-2023-25577: Werkzeug multipart data parsing DoS vulnerability.
+
+**Code Snippet:**
+```python
+werkzeug==1.0.0
+```
+
+**Recommendation:** Upgrade werkzeug to the latest patched version. Run: pip install --upgrade werkzeug
+
+---
+
+### 21. [HIGH] Vulnerable Dependency: numpy
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 9
+- **CWE:** CWE-1035
+
+**Description:** numpy may be affected by CVE-2019-6446: NumPy pickle deserialization vulnerability via np.load().
+
+**Code Snippet:**
+```python
+numpy
+```
+
+**Recommendation:** Upgrade numpy to the latest patched version. Run: pip install --upgrade numpy
+
+---
+
+### 22. [HIGH] Vulnerable Dependency: urllib3
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 10
+- **CWE:** CWE-1035
+
+**Description:** urllib3==1.25.0 may be affected by CVE-2021-33503: urllib3 ReDoS vulnerability in URL parsing.
+
+**Code Snippet:**
+```python
+urllib3==1.25.0
+```
+
+**Recommendation:** Upgrade urllib3 to the latest patched version. Run: pip install --upgrade urllib3
+
+---
+
+### 23. [HIGH] PostgreSQL Connection String with Credentials in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit b1cd13ae (2026-02-24) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: b1cd13ae | initial commit
+(r'postgres://[^:]+:[^@]+@',
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 24. [HIGH] OpenAI API Key in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit b1cd13ae (2026-02-24) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: b1cd13ae | initial commit
+"code_snippet": "API_KEY = \"sk-abc123xyz789hardcoded\"",
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 25. [HIGH] Password in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit b1cd13ae (2026-02-24) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: b1cd13ae | initial commit
+DB_PASSWORD = "admin123"
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 26. [HIGH] API Key in Git History
+
+- **Agent:** Agent F - Git History Scanner
+- **File:** `C:\Users\royal\OneDrive\Desktop\Sentinel_AI\.git`
+- **Line:** None
+- **CWE:** CWE-312
+
+**Description:** A potential secret was found in commit b1cd13ae (2026-02-24) by BM840. Even if deleted from current code, this secret remains accessible in git history to anyone with repo access.
+
+**Code Snippet:**
+```python
+Commit: b1cd13ae | initial commit
+API_KEY = "sk-abc123xyz789hardcoded"
+```
+
+**Recommendation:** 1. Rotate/revoke the exposed secret immediately.
+2. Use 'git filter-repo' or BFG Repo Cleaner to purge from history.
+3. Force-push the cleaned history.
+4. Use environment variables for all secrets going forward.
+
+---
+
+### 27. [HIGH] Missing Security Header: Strict-Transport-Security
+
+- **Agent:** Agent G - CORS & Headers Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** None
+- **CWE:** CWE-319
+
+**Description:** The 'Strict-Transport-Security' security header is not set in this file. Enforces HTTPS connections (HSTS). Without this, users can be downgraded to HTTP.
+
+**Recommendation:** Add: response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+Best practice: Set all security headers globally using an @app.after_request decorator:
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['Strict-Transport-Security'] = '...'
+    return response
+
+---
+
+### 28. [HIGH] Missing Security Header: Content-Security-Policy
+
+- **Agent:** Agent G - CORS & Headers Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** None
+- **CWE:** CWE-79
+
+**Description:** The 'Content-Security-Policy' security header is not set in this file. Controls which resources the browser can load, preventing XSS attacks.
+
+**Recommendation:** Add a Content-Security-Policy header to restrict script/style sources.
+
+Best practice: Set all security headers globally using an @app.after_request decorator:
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['Content-Security-Policy'] = '...'
+    return response
+
+---
+
+### 29. [HIGH] Weak Hash Algorithm: MD5
+
+- **Agent:** Agent H - Cryptography Auditor
+- **File:** `demo_app\app (1).py`
 - **Line:** 63
-- **CWE:** CWE-306
+- **CWE:** CWE-327
 
-**Description:** Route 'search' does not verify authentication.
+**Description:** MD5 is cryptographically broken and should not be used for security purposes.
 
 **Code Snippet:**
 ```python
-def search():
-    term = request.args.get("q", "")
-    db = get_db()
-    cursor = db.cursor()
-
-    # Vulnerability: Another raw SQL injection
-    query = f"SELECT * FROM products WHERE name LIKE '%{te
+return hashlib.md5(password.encode()).hexdigest()
 ```
 
-**Recommendation:** Add authentication checks.
+**Recommendation:** Replace MD5 with SHA-256 or SHA-3 for general hashing.
+For passwords, use bcrypt, argon2, or PBKDF2 via passlib:
+  from passlib.hash import bcrypt
+  hashed = bcrypt.hash(password)
 
 ---
 
-### 16. [MEDIUM] Unauthenticated Route Handler
+### 30. [HIGH] Insecure Random - random.randint()
 
-- **Agent:** Agent B - Auth Logic Auditor (Ollama) [Heuristic]
-- **File:** `sample_app\app (1).py`
+- **Agent:** Agent H - Cryptography Auditor
+- **File:** `demo_app\app (1).py`
 - **Line:** 76
-- **CWE:** CWE-306
+- **CWE:** CWE-338
 
-**Description:** Route 'eval_endpoint' does not verify authentication.
+**Description:** random.randint() is not cryptographically secure. Do not use for tokens, keys, or passwords. [[!] Security-sensitive context detected]
 
 **Code Snippet:**
 ```python
-def eval_endpoint():
-    data = request.json.get("expression", "")
-    # Vulnerability: eval() on user input
-    result = eval(data)
-    return jsonify({"result": result})
+token = str(random.randint(100000, 999999))
 ```
 
-**Recommendation:** Add authentication checks.
+**Recommendation:** Use the 'secrets' module for cryptographically secure randomness:
+  import secrets
+  token = secrets.token_hex(32)       # random hex string
+  token = secrets.token_urlsafe(32)   # URL-safe token
+  choice = secrets.choice(my_list)    # secure random choice
 
 ---
 
-### 17. [MEDIUM] Unauthenticated Route Handler
+### 31. [MEDIUM] Debug Mode Enabled
 
-- **Agent:** Agent B - Auth Logic Auditor (Ollama) [Heuristic]
-- **File:** `sample_app\app (1).py`
-- **Line:** 84
-- **CWE:** CWE-306
+- **Agent:** Agent A - Pattern Detector
+- **File:** `demo_app\app (1).py`
+- **Line:** 23
+- **CWE:** CWE-215
 
-**Description:** Route 'reset_password' does not verify authentication.
+**Description:** Debug mode is enabled on line 23. In production, this exposes stack traces, internal state, and may enable the interactive debugger.
 
 **Code Snippet:**
 ```python
-def reset_password():
-    user_id = request.form.get("user_id")
-    new_pass = request.form.get("password")
-    db = get_db()
-    cursor = db.cursor()
-
-    # Vulnerability: SQL injection in update
-   
+app.config["DEBUG"] = True
 ```
 
-**Recommendation:** Add authentication checks.
+**Recommendation:** Disable debug mode in production. Use environment-based configuration (e.g., DEBUG = os.getenv('DEBUG', 'False') == 'True').
+
+---
+
+### 32. [MEDIUM] Debug Mode Enabled
+
+- **Agent:** Agent A - Pattern Detector
+- **File:** `demo_app\app (1).py`
+- **Line:** 371
+- **CWE:** CWE-215
+
+**Description:** Debug mode is enabled on line 371. In production, this exposes stack traces, internal state, and may enable the interactive debugger.
+
+**Code Snippet:**
+```python
+app.run(debug=True, host="0.0.0.0", port=5000)
+```
+
+**Recommendation:** Disable debug mode in production. Use environment-based configuration (e.g., DEBUG = os.getenv('DEBUG', 'False') == 'True').
+
+---
+
+### 33. [MEDIUM] Vulnerable Dependency: requests
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 3
+- **CWE:** CWE-1035
+
+**Description:** requests==2.18.0 may be affected by CVE-2018-18074: Requests library sends HTTP Authorization header to redirected hosts.
+
+**Code Snippet:**
+```python
+requests==2.18.0
+```
+
+**Recommendation:** Upgrade requests to the latest patched version. Run: pip install --upgrade requests
+
+---
+
+### 34. [MEDIUM] Vulnerable Dependency: jinja2
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 7
+- **CWE:** CWE-1035
+
+**Description:** jinja2==2.10.0 may be affected by CVE-2020-28493: Jinja2 ReDoS vulnerability in urlize filter.
+
+**Code Snippet:**
+```python
+jinja2==2.10.0
+```
+
+**Recommendation:** Upgrade jinja2 to the latest patched version. Run: pip install --upgrade jinja2
+
+---
+
+### 35. [MEDIUM] Missing Security Header: X-Content-Type-Options
+
+- **Agent:** Agent G - CORS & Headers Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** None
+- **CWE:** CWE-693
+
+**Description:** The 'X-Content-Type-Options' security header is not set in this file. Prevents MIME-type sniffing attacks.
+
+**Recommendation:** Add: response.headers['X-Content-Type-Options'] = 'nosniff'
+
+Best practice: Set all security headers globally using an @app.after_request decorator:
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = '...'
+    return response
+
+---
+
+### 36. [MEDIUM] Missing Security Header: X-Frame-Options
+
+- **Agent:** Agent G - CORS & Headers Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** None
+- **CWE:** CWE-1021
+
+**Description:** The 'X-Frame-Options' security header is not set in this file. Prevents clickjacking by controlling iframe embedding.
+
+**Recommendation:** Add: response.headers['X-Frame-Options'] = 'DENY' or 'SAMEORIGIN'
+
+Best practice: Set all security headers globally using an @app.after_request decorator:
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Frame-Options'] = '...'
+    return response
+
+---
+
+### 37. [LOW] Unpinned Dependency: numpy
+
+- **Agent:** Agent E - Dependency Scanner
+- **File:** `requirements.txt`
+- **Line:** 9
+- **CWE:** CWE-1104
+
+**Description:** numpy has no version pinned. Unpinned dependencies can introduce breaking changes or vulnerabilities automatically.
+
+**Code Snippet:**
+```python
+numpy
+```
+
+**Recommendation:** Pin to a specific version: numpy==<version>. Use 'pip freeze' to get current versions.
+
+---
+
+### 38. [LOW] Missing Security Header: X-XSS-Protection
+
+- **Agent:** Agent G - CORS & Headers Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** None
+- **CWE:** CWE-79
+
+**Description:** The 'X-XSS-Protection' security header is not set in this file. Enables browser XSS filter (legacy browsers).
+
+**Recommendation:** Add: response.headers['X-XSS-Protection'] = '1; mode=block'
+
+Best practice: Set all security headers globally using an @app.after_request decorator:
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-XSS-Protection'] = '...'
+    return response
+
+---
+
+### 39. [LOW] Missing Security Header: Referrer-Policy
+
+- **Agent:** Agent G - CORS & Headers Auditor
+- **File:** `demo_app\app (1).py`
+- **Line:** None
+- **CWE:** CWE-200
+
+**Description:** The 'Referrer-Policy' security header is not set in this file. Controls how much referrer info is sent with requests.
+
+**Recommendation:** Add: response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+Best practice: Set all security headers globally using an @app.after_request decorator:
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['Referrer-Policy'] = '...'
+    return response
 
 ---

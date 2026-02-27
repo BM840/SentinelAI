@@ -50,7 +50,8 @@ def is_git_repo(path: Path) -> bool:
         result = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             cwd=str(path),
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            encoding="utf-8", errors="replace"
         )
         return result.returncode == 0
     except Exception:
@@ -63,7 +64,8 @@ def get_git_root(path: Path) -> Optional[Path]:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
             cwd=str(path),
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            encoding="utf-8", errors="replace"
         )
         if result.returncode == 0:
             return Path(result.stdout.strip())
@@ -79,7 +81,8 @@ def get_commit_history(git_root: Path, max_commits: int = 100) -> List[dict]:
             ["git", "log", f"--max-count={max_commits}",
              "--pretty=format:%H|%s|%an|%ad", "--date=short"],
             cwd=str(git_root),
-            capture_output=True, text=True, timeout=15
+            capture_output=True, text=True, timeout=15,
+            encoding="utf-8", errors="replace"
         )
         commits = []
         for line in result.stdout.strip().splitlines():
@@ -102,7 +105,8 @@ def get_commit_diff(git_root: Path, commit_hash: str) -> str:
         result = subprocess.run(
             ["git", "show", "--diff-filter=A", "-p", commit_hash],
             cwd=str(git_root),
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=10,
+            encoding="utf-8", errors="replace"
         )
         return result.stdout
     except Exception:

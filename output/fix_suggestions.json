@@ -1,0 +1,390 @@
+{
+  "stats": {
+    "total_fixes_generated": 38,
+    "ollama_fixes": 18,
+    "rule_fixes": 20,
+    "files_patched": 1
+  },
+  "fixes": [
+    {
+      "finding_title": "Hardcoded Secret",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 19,
+      "before": "ADMIN_TOKEN = \"admin-token-abc123xyz\"",
+      "after": "ADMIN_TOKEN = bcrypt.hashpw(\"admin-token\".encode(), bcrypt.gensalt())",
+      "explanation": "Storing tokens in plaintext can lead to unauthorized access if they are compromised; hashing with a salt improves security by making it computationally difficult for attackers to reverse the hash back",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Hardcoded Secret",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 20,
+      "before": "STRIPE_SECRET = \"sk_live_4eKoV8mNpQrL92xZ\"",
+      "after": "STRIPE_SECRET = os.environ.get('STRIPE_SECRET') or 'your-default-secret'  # Replace 'your-default-secret' with your actual secret key if necessary, but avoid hardcoding secrets directly in the codebase",
+      "explanation": "Hardcoded credentials are easily accessible and can be exploited; using environment variables for sensitive data is a best practice that keeps them out of source control.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Hardcoded Secret",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 21,
+      "before": "SENDGRID_API_KEY = \"SG.xK9mP2nQvL8rT5wY\"",
+      "after": "SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY') or 'your-default-api-key'  # Replace with your actual API key if necessary, but avoid hardcoding secrets directly in the codebase",
+      "explanation": "Similar to STRIPE_SECRET, storing sensitive information like an email sending service API keys as environment variables helps prevent them from being exposed in source control and reduces risk of unau",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Use of eval() Detected",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 318,
+      "before": "result     = eval(expression)",
+      "after": "result = eval(expression)  # Replace 'expression' with a safer alternative such as: exec(\"print({})\".format(expression)) if you need to execute code dynamically, but avoid using eval() whenever possible due to the high security risks associated with it; otherwise use safe alternatives.",
+      "explanation": "The `eval()` function can run arbitrary Python code which is a significant risk for injection attacks and should be avoided unless absolutely necessary after implementing proper input validation or sa",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SQL Injection Risk - String Concatenation in Query",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 200,
+      "before": "\"SELECT username, email FROM users WHERE username LIKE '%\" + query + \"%'\"",
+      "after": "query = \"%\" + query.replace(\"'\", \"''\")  # Sanitize the user input to prevent SQL injection; always use parameterized queries provided by database libraries instead of string concatenation for security reasons.",
+      "explanation": "String concatenation with unsanitized inputs can lead to SQL Injection attacks, which is why it\u2019s important to sanitize or validate all user-provided data and utilize prepared statements that separate",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SQL Injection Risk - String Concatenation in Query",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 271,
+      "before": "users = conn.execute(\"SELECT * FROM users\").fetchall()",
+      "after": "users = conn.execute(\"SELECT * FROM users\").fetchall()  # This line does not contain a security vulnerability; however, ensure the database connection is securely managed to prevent other potential risks like exposing credentials or misconfiguring access controls.",
+      "explanation": "While this code snippet itself doesn't present an immediate risk of SQL injection due to using parameterized queries (assuming 'conn' uses them), it\u2019s always good practice to ensure that the database",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 23,
+      "before": "app.config[\"DEBUG\"] = True",
+      "after": "app.config[\"DEBUG\"] = False  # Disable debug mode when deploying an application; this prevents sensitive information from being exposed on error pages which can be a significant risk if the codebase is publicly accessible during development phases.",
+      "explanation": "Enabling 'debug' in production environments may expose detailed stack traces and other sensitive data, making it easier for attackers to gain insights into your application; disabling debug mode helps",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 371,
+      "before": "app.run(debug=True, host=\"0.0.0.0\", port=5000)",
+      "after": "host=\"0.00.0.0\"  # This line does not contain a security vulnerability, but ensure that the firewall and other network configurations are set up correctly to restrict access only to trusted networks or IPs if necessary; otherwise, it's safe for development purposes as long as proper authentication is in place before allowing external connections.",
+      "explanation": "Binding an application to all available interfaces ('0.0.0.0') can expose the service on publicly accessible network addresses which might not be secure unless additional security measures like firewa",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SQL Injection",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 35,
+      "before": "def init_db():\n    conn = get_db()\n    conn.execute(\"\"\"\n        CREATE TABLE IF NOT EXISTS users (\n            id INTEGER PRIMARY KEY,\n            username TEXT UNIQUE NOT NULL,\n            password TEXT NOT NULL,\n            email TEXT,\n            balance REAL DEFAULT 1000.0,\n            role TEXT...",
+      "after": "conn.execute(\"\"\"CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password BLOB)\"\"\")",
+      "explanation": "This prevents SQL injection by using parameterized queries instead of string concatenation with user input directly in the query.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Weak Hashing Algorithm",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 62,
+      "before": "def hash_password(password):\n    return hashlib.md5(password.encode()).hexdigest()",
+      "after": "def hash_password(password):     return bcrypt.hashpw(password.encode(), bcrypt.gensalt())",
+      "explanation": "Bcrypt is a strong, adaptive hashing algorithm that provides better security against brute-force attacks compared to MD5.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Session Hijacking Risk",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 66,
+      "before": "def login_required(f):\n    @wraps(f)\n    def decorated(*args, **kwargs):\n        if \"user_id\" not in session:\n            return jsonify({\"error\": \"Authentication required\"}), 401\n        return f(*args, **kwargs)\n    return decorated",
+      "after": "@login_required\ndef login():     data  = request.get\u043d\u043e\u0441\u0438\u0437\u0430\u0446\u0438\u0438",
+      "explanation": "Wrapping the function with `@login_required` ensures it's only accessible after successful authentication, mitigating session hijacking risks.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Password Hash Comparison Error Handling",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 106,
+      "before": "def login():\n    data     = request.get_json()\n    username = data.get(\"username\", \"\")\n    password = data.get(\"password\", \"\")\n\n    conn  = get_db()\n    query = \"SELECT * FROM users WHERE username = '%s'\" % username\n    user  = conn.execute(query).fetchone()\n    conn.close()\n\n    if user and user[\"p...",
+      "after": "def login():    try:        data  = request.get_json()     username = data.get(\"username\", \"\")         password = data.get(\"password\", \"\")      conn  = gettable_db()   except Exception as e:       return jsonify({\"error\": str(e)})",
+      "explanation": "Adding exception handling for login errors prevents the application from crashing and provides meaningful feedback to users, improving security by not exposing stack traces.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Sensitive Data Exposure via Email Content",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 132,
+      "before": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+      "after": "def forgot_password():     data  = request.get_json()     email = data.get(\"email\", \"\")      token = generate_reset_token(email)       # Send reset ema",
+      "explanation": "Generating a secure, random token for password resets ensures that the link to change passwords is unique and less likely to be intercepted or guessed by attackers.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Unsanitized User Input Reaches conn.execute()",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 199,
+      "before": "conn.execute(\"SELECT username, email FROM users WHERE username LIKE '%\" + query + \"%'\")",
+      "after": "conn.execute(\"\"\"SELECT username, email FROM users WHERE username = %s OR bcrypt.checkpw(%s, password) IS TRUE;\"\"\", (query, hash_password(password)))",
+      "explanation": "Using parameterized queries with placeholders and binding the user input to these parameters prevents SQL injection by ensuring that data is treated as values rather than executable code within a quer",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Missing Security Header: X-Content-Type-Options",
+      "severity": "MEDIUM",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": null,
+      "before": "",
+      "after": "X-Content-Type-Options: nosniff\n@app.after_request\ndef add_security_headers(resp):\n    resp.headers[\"X-Content-Type-Options\"] = \"nosniff\"\n    return resp",
+      "explanation": "",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Missing Security Header: X-Frame-Options",
+      "severity": "MEDIUM",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['X-Frame-Options'] = 'DENY' or 'SAMEORIGIN'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-Frame-Options'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: Strict-Transport-Security",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Strict-Transport-Security'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: Content-Security-Policy",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add a Content-Security-Policy header to restrict script/style sources.\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Content-Security-Policy'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: X-XSS-Protection",
+      "severity": "LOW",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['X-XSS-Protection'] = '1; mode=block'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-XSS-Protection'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: Referrer-Policy",
+      "severity": "LOW",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Referrer-Policy'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Weak Hash Algorithm: MD5",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 63,
+      "before": "return hashlib.md5(password.encode()).hexdigest()",
+      "after": "return hashlib.sha256(password.encode()).hexdigest()",
+      "explanation": "SHA-256 is a stronger hashing algorithm compared to MD5, which lacks collision resistance making it more secure against brute force attacks and rainbow table lookups.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Insecure Random - random.randint()",
+      "severity": "HIGH",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 76,
+      "before": "token = str(random.randint(100000, 999999))",
+      "after": "token = ''.join(['%02d' % i for i in [random.randint(100000, 999999) for _ in range(6)]])",
+      "explanation": "Using a fixed length and format ensures that the generated tokens are consistent and predictable within their own generation process but still random enough to resist guessing attacks when used proper",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SSL Certificate Verification Disabled",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\app (1).py",
+      "lineno": 147,
+      "before": "verify=False",
+      "after": "verify=True  # Assuming this is part of an SSL/TLS context, such as in requests or urllib3's HTTPSConnectionPool methods.",
+      "explanation": "Enabling certificate verification ensures that the server you are connecting to has a valid and trusted SSL certificate, preventing man-in-the-middle attacks where attackers could present their own ce",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: Pillow",
+      "severity": "CRITICAL",
+      "filepath": "demo_app\\requirements.txt",
+      "lineno": 12,
+      "before": "Pillow==9.0.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: flask",
+      "severity": "HIGH",
+      "filepath": "requirements.txt",
+      "lineno": 1,
+      "before": "flask==0.12.3",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: django",
+      "severity": "CRITICAL",
+      "filepath": "requirements.txt",
+      "lineno": 2,
+      "before": "django==2.2.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: requests",
+      "severity": "MEDIUM",
+      "filepath": "requirements.txt",
+      "lineno": 3,
+      "before": "requests==2.18.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: pyyaml",
+      "severity": "CRITICAL",
+      "filepath": "requirements.txt",
+      "lineno": 5,
+      "before": "pyyaml==5.3",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: sqlalchemy",
+      "severity": "HIGH",
+      "filepath": "requirements.txt",
+      "lineno": 6,
+      "before": "sqlalchemy==1.3.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: jinja2",
+      "severity": "MEDIUM",
+      "filepath": "requirements.txt",
+      "lineno": 7,
+      "before": "jinja2==2.10.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: werkzeug",
+      "severity": "HIGH",
+      "filepath": "requirements.txt",
+      "lineno": 8,
+      "before": "werkzeug==1.0.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: numpy",
+      "severity": "HIGH",
+      "filepath": "requirements.txt",
+      "lineno": 9,
+      "before": "numpy",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Unpinned Dependency: numpy",
+      "severity": "LOW",
+      "filepath": "requirements.txt",
+      "lineno": 9,
+      "before": "numpy",
+      "after": "flask==3.0.3  # Pin to a specific secure version",
+      "explanation": "Pin all dependencies to exact versions to prevent unexpected upgrades.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Vulnerable Dependency: urllib3",
+      "severity": "HIGH",
+      "filepath": "requirements.txt",
+      "lineno": 10,
+      "before": "urllib3==1.25.0",
+      "after": "# In requirements.txt \u2014 upgrade to latest secure version:\n# pip install --upgrade <package>",
+      "explanation": "Upgrade this package to the latest version to patch the vulnerability.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "PostgreSQL Connection String with Credentials in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: b1cd13ae | initial commit\n(r'postgres://[^:]+:[^@]+@',",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "OpenAI API Key in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: b1cd13ae | initial commit\n\"code_snippet\": \"API_KEY = \\\"sk-abc123xyz789hardcoded\\\"\",",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Password in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: b1cd13ae | initial commit\nDB_PASSWORD = \"admin123\"",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    },
+    {
+      "finding_title": "API Key in Git History",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\OneDrive\\Desktop\\Sentinel_AI\\.git",
+      "lineno": null,
+      "before": "Commit: b1cd13ae | initial commit\nAPI_KEY = \"sk-abc123xyz789hardcoded\"",
+      "after": "# Rotate this credential immediately.\n# Use: git filter-branch or BFG Repo-Cleaner to purge from history.",
+      "explanation": "Rotate the exposed credential immediately and purge it from git history.",
+      "type": "rule"
+    }
+  ]
+}

@@ -177,7 +177,7 @@ class WeakCryptographyDetector:
                     findings.append(Finding(
                         agent=self.AGENT_NAME,
                         title=title,
-                        description=desc + (" [⚠️ Security-sensitive context detected]" if security_context else ""),
+                        description=desc + (" [[!] Security-sensitive context detected]" if security_context else ""),
                         severity=actual_severity,
                         filepath=analysis.filepath,
                         lineno=lineno,

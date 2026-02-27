@@ -15,6 +15,7 @@ from agents.agent_e_dependency_scanner import DependencyScanner
 from agents.agent_f_git_history import GitHistoryScanner
 from agents.agent_g_cors_headers import CORSAndHeadersAuditor
 from agents.agent_h_cryptography import WeakCryptographyDetector
+from agents.agent_i_autofix import AutoFixEngine
 
 
 class AgentOrchestrator:
@@ -27,9 +28,10 @@ class AgentOrchestrator:
       5. Agent D - Risk Scoring Agent
     """
 
-    def __init__(self, target_path: str, use_llm: bool = True):
+    def __init__(self, target_path: str, use_llm: bool = True, output_dir: str = "output"):
         self.target_path = target_path
         self.use_llm = use_llm
+        self.output_dir = output_dir
         self.all_findings: List[Finding] = []
         self.summary: Dict = {}
 
@@ -52,49 +54,49 @@ class AgentOrchestrator:
         print("\n[Orchestrator] Phase 2: Running Agent A - Pattern Detector")
         agent_a = PatternVulnerabilityDetector()
         findings_a = agent_a.analyze(analyses)
-        print(f"  → Agent A found {len(findings_a)} issue(s).")
+        print(f"  -> Agent A found {len(findings_a)} issue(s).")
         self.all_findings.extend(findings_a)
 
         # Step 3: Agent B
         print("\n[Orchestrator] Phase 3: Running Agent B - Auth Logic Auditor")
         agent_b = AuthenticationLogicAuditor(use_llm=self.use_llm)
         findings_b = agent_b.analyze(analyses)
-        print(f"  → Agent B found {len(findings_b)} issue(s).")
+        print(f"  -> Agent B found {len(findings_b)} issue(s).")
         self.all_findings.extend(findings_b)
 
         # Step 4: Agent C
         print("\n[Orchestrator] Phase 4: Running Agent C - Data Flow Analyzer")
         agent_c = DataFlowAnalyzer()
         findings_c = agent_c.analyze(analyses)
-        print(f"  → Agent C found {len(findings_c)} issue(s).")
+        print(f"  -> Agent C found {len(findings_c)} issue(s).")
         self.all_findings.extend(findings_c)
 
         # Step 5: Agent E - Dependency Scanner
         print("\n[Orchestrator] Phase 5: Running Agent E - Dependency Scanner")
         agent_e = DependencyScanner(use_api=False)
         findings_e = agent_e.analyze(analyses)
-        print(f"  → Agent E found {len(findings_e)} issue(s).")
+        print(f"  -> Agent E found {len(findings_e)} issue(s).")
         self.all_findings.extend(findings_e)
 
         # Step 6: Agent F - Git History Scanner
         print("\n[Orchestrator] Phase 6: Running Agent F - Git History Scanner")
         agent_f = GitHistoryScanner()
         findings_f = agent_f.analyze(analyses)
-        print(f"  → Agent F found {len(findings_f)} issue(s).")
+        print(f"  -> Agent F found {len(findings_f)} issue(s).")
         self.all_findings.extend(findings_f)
 
         # Step 7: Agent G - CORS and Headers Auditor
         print("\n[Orchestrator] Phase 7: Running Agent G - CORS & Headers Auditor")
         agent_g = CORSAndHeadersAuditor()
         findings_g = agent_g.analyze(analyses)
-        print(f"  → Agent G found {len(findings_g)} issue(s).")
+        print(f"  -> Agent G found {len(findings_g)} issue(s).")
         self.all_findings.extend(findings_g)
 
         # Step 8: Agent H - Cryptography Auditor
         print("\n[Orchestrator] Phase 8: Running Agent H - Cryptography Auditor")
         agent_h = WeakCryptographyDetector()
         findings_h = agent_h.analyze(analyses)
-        print(f"  → Agent H found {len(findings_h)} issue(s).")
+        print(f"  -> Agent H found {len(findings_h)} issue(s).")
         self.all_findings.extend(findings_h)
 
 
@@ -104,6 +106,22 @@ class AgentOrchestrator:
         final_findings, summary = agent_d.analyze(self.all_findings)
         self.all_findings = final_findings
         self.summary = summary
+
+        # Step 10: Agent I - Auto-Fix Engine
+        print("\n[Orchestrator] Phase 10: Running Agent I - Auto-Fix Engine")
+        agent_i = AutoFixEngine(use_llm=self.use_llm)
+        fix_result = agent_i.generate_fixes(self.all_findings, analyses)
+        stats = fix_result["stats"]
+        print(f"  -> Agent I generated {stats['total_fixes_generated']} fix(es) "
+              f"({stats['ollama_fixes']} Ollama, {stats['rule_fixes']} rule-based)")
+
+        # Save fix report and patched files
+        if self.output_dir:
+            agent_i.save_fix_report(fix_result, self.output_dir)
+            patched = agent_i.save_patched_files(fix_result["patched_files"], self.output_dir)
+            self.summary["fixes_generated"]   = stats["total_fixes_generated"]
+            self.summary["files_patched"]     = stats["files_patched"]
+            self.summary["patched_file_paths"]= patched
 
         elapsed = round(time.time() - start_time, 2)
         self.summary["scan_duration_seconds"] = elapsed
@@ -125,7 +143,7 @@ class AgentOrchestrator:
         print()
         print("  Severity Breakdown:")
         for sev, count in s.get("severity_breakdown", {}).items():
-            bar = "█" * min(count * 3, 30)
+            bar = "#" * min(count * 3, 30)
             print(f"    {sev:<10} {count:>3}  {bar}")
         print()
         print("  Top Findings:")

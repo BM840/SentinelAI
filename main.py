@@ -52,9 +52,9 @@ Examples:
         md_path = os.path.join(args.output_dir, "sentinel_report.md")
         orchestrator.save_json(json_path)
         orchestrator.save_report(md_path)
-        print(f"\n✅ Reports saved to: {args.output_dir}/")
+        print(f"\n[OK] Reports saved to: {args.output_dir}/")
     else:
-        print("\n⚠️  No findings or no files analyzed.")
+        print("\n[!]  No findings or no files analyzed.")
 
 
 if __name__ == "__main__":

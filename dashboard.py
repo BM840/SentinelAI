@@ -692,6 +692,33 @@ if "📊" in mode:
                 mime="application/json"
             )
 
+    # Patched files download
+    patched_paths = summary.get("patched_file_paths", [])
+    if patched_paths:
+        st.markdown("""
+        <div style="background:rgba(0,100,200,0.08); border:1px solid #1a3a5a;
+                    border-radius:8px; padding:14px 16px; margin-top:10px;">
+            <div style="font-size:0.8rem; color:#3a7aaa; font-weight:600; margin-bottom:8px;">
+                ⚡ Auto-Fixed Files Available
+            </div>
+            <div style="font-size:0.78rem; color:#5a8aaa; margin-bottom:10px;">
+                Agent I has generated patched versions of your files with common vulnerabilities fixed automatically.
+                Review before using in production.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        for pp in patched_paths:
+            if os.path.exists(pp):
+                fname = os.path.basename(pp)
+                with open(pp, "rb") as pf:
+                    st.download_button(
+                        label=f"⬇  Download {fname}",
+                        data=pf.read(),
+                        file_name=fname,
+                        mime="text/plain",
+                        key=f"dl_{fname}"
+                    )
+
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Issue summary row
@@ -769,13 +796,23 @@ if "📊" in mode:
             </div>
             """, unsafe_allow_html=True)
 
+            owasp_id   = f.get("owasp_id", "")
+            owasp_name = f.get("owasp_name", "")
+            owasp_url  = f.get("owasp_url", "https://owasp.org/Top10/")
+
             loc_parts = []
             if filename: loc_parts.append(f"<b>File:</b> {filename}")
             if lineno:   loc_parts.append(f"<b>Line:</b> {lineno}")
             if cwe:      loc_parts.append(f"<b>Reference:</b> {cwe}")
             if loc_parts:
-                st.markdown('<div style="font-size:0.78rem; color:#4a7a9a; margin-bottom:10px;">' +
+                st.markdown('<div style="font-size:0.78rem; color:#4a7a9a; margin-bottom:6px;">' +
                             " &nbsp;·&nbsp; ".join(loc_parts) + "</div>", unsafe_allow_html=True)
+
+            if owasp_id and owasp_name:
+                owasp_badge = f'<a href="{owasp_url}" target="_blank" style="text-decoration:none;">'  \
+                    f'<div style="display:inline-block; margin-bottom:10px; background:rgba(0,160,100,0.10); border:1px solid #1a5a3a; border-radius:5px; padding:3px 10px;">' \
+                    f'<span style="font-size:0.72rem; color:#3aaa6a; font-weight:700; letter-spacing:0.5px;">🛡️ {owasp_id} — {owasp_name}</span></div></a>'
+                st.markdown(owasp_badge, unsafe_allow_html=True)
 
             if snippet:
                 st.markdown(f"""
@@ -788,7 +825,26 @@ if "📊" in mode:
                 </div>
                 """, unsafe_allow_html=True)
 
-            if rec:
+            # Show auto-fix if available
+            fix = f.get("fix_suggestion")
+            if fix and fix.get("after"):
+                fix_type = fix.get("type", "rule")
+                fix_label = "Auto-Fix (Rule-Based)" if fix_type == "rule" else "Auto-Fix (AI Generated)"
+                fix_icon  = "⚡" if fix_type == "rule" else "🤖"
+                st.markdown(f"""
+                <div style="margin-bottom:10px; background:rgba(0,100,200,0.06);
+                            border:1px solid #1a3a5a; border-radius:8px; padding:12px 16px;">
+                    <div style="font-size:0.72rem; color:#3a7aaa; font-weight:600;
+                                letter-spacing:1px; margin-bottom:8px;">{fix_icon} {fix_label}</div>
+                    <div style="font-size:0.7rem; color:#3d6b8a; margin-bottom:4px;">Fixed code:</div>
+                    <div style="font-family:'Share Tech Mono',monospace; font-size:0.78rem;
+                                background:#050810; border:1px solid #1a3535; border-radius:6px;
+                                padding:10px 14px; color:#7aff8a; white-space:pre-wrap; word-break:break-all;">
+{_html.escape(str(fix.get("after",""))[:400])}</div>
+                    {"<div style=\"font-size:0.8rem; color:#5a9aaa; margin-top:8px;\">" + _html.escape(str(fix.get("explanation",""))[:300]) + "</div>" if fix.get("explanation") else ""}
+                </div>
+                """, unsafe_allow_html=True)
+            elif rec:
                 st.markdown(f"""
                 <div style="background:rgba(0,180,100,0.06); border-left:3px solid #2a7a4a;
                             border-radius:0 8px 8px 0; padding:12px 16px;">

@@ -16,6 +16,7 @@ from agents.agent_f_git_history import GitHistoryScanner
 from agents.agent_g_cors_headers import CORSAndHeadersAuditor
 from agents.agent_h_cryptography import WeakCryptographyDetector
 from agents.agent_i_autofix import AutoFixEngine
+from core.owasp import annotate_findings
 
 
 class AgentOrchestrator:
@@ -107,6 +108,11 @@ class AgentOrchestrator:
         self.all_findings = final_findings
         self.summary = summary
 
+        # Annotate all findings with OWASP Top 10 categories
+        annotate_findings(self.all_findings)
+        owasp_hits = sum(1 for f in self.all_findings if getattr(f, "owasp_id", ""))
+        print(f"\n[Orchestrator] OWASP mapping: {owasp_hits}/{len(self.all_findings)} findings tagged")
+
         # Step 10: Agent I - Auto-Fix Engine
         print("\n[Orchestrator] Phase 10: Running Agent I - Auto-Fix Engine")
         agent_i = AutoFixEngine(use_llm=self.use_llm)
@@ -153,7 +159,21 @@ class AgentOrchestrator:
             reverse=True
         )
         for f in sorted_findings[:5]:
-            print(f"    [{f.severity.value}] {f.title} - Line {f.lineno}")
+            owasp = getattr(f, "owasp_id", "")
+            owasp_str = f"  [{owasp}]" if owasp else ""
+            print(f"    [{f.severity.value}] {f.title} - Line {f.lineno}{owasp_str}")
+        print()
+        # OWASP breakdown
+        from collections import Counter
+        owasp_counts = Counter(
+            f"{getattr(f,'owasp_id','')} — {getattr(f,'owasp_name','')}"
+            for f in self.all_findings
+            if getattr(f, "owasp_id", "")
+        )
+        if owasp_counts:
+            print("  OWASP Top 10 Breakdown:")
+            for category, count in sorted(owasp_counts.items()):
+                print(f"    {category}: {count} finding(s)")
         print("="*60 + "\n")
 
     def _build_output(self) -> Dict:

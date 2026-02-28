@@ -10,8 +10,8 @@
     "fixes_generated": 0,
     "files_patched": 0,
     "patched_file_paths": [],
-    "scan_duration_seconds": 4.17,
-    "target_path": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_3pnf8r39\\app.py"
+    "scan_duration_seconds": 4.21,
+    "target_path": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_sot9qf9w\\process_bank_excel.py"
   },
   "findings": []
 }

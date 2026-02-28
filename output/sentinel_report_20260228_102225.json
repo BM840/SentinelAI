@@ -1,0 +1,356 @@
+{
+  "summary": {
+    "total_findings": 16,
+    "risk_score": 96,
+    "risk_level": "CRITICAL RISK - Severe security flaws present. Do NOT deploy without remediation.",
+    "severity_breakdown": {
+      "CRITICAL": 6,
+      "HIGH": 4,
+      "MEDIUM": 3,
+      "LOW": 3
+    },
+    "findings_by_agent": {
+      "Agent A - Pattern Detector": 2,
+      "Agent B - Auth Logic Auditor (LLM)": 8,
+      "Agent G - CORS & Headers Auditor": 6
+    },
+    "files_scanned": [
+      "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py"
+    ],
+    "most_vulnerable_files": [
+      {
+        "file": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+        "count": 16
+      }
+    ],
+    "fixes_generated": 16,
+    "files_patched": 1,
+    "patched_file_paths": [
+      "output\\patched\\FIXED_FIXED_app (2).py"
+    ],
+    "scan_duration_seconds": 91.19,
+    "target_path": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py"
+  },
+  "findings": [
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "Use of eval() Detected",
+      "description": "eval() on line 318 can execute arbitrary code if user input is passed.",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 318,
+      "code_snippet": "result = eval(expression)  # Replace this line entirely as it is unsafe and unnecessary in most cases.",
+      "recommendation": "Avoid eval() entirely. Use safe alternatives like ast.literal_eval() for data parsing, or redesign the logic.",
+      "cwe_id": "CWE-95",
+      "fix_suggestion": {
+        "before": "result = eval(expression)  # Replace this line entirely as it is unsafe and unnecessary in most cases.",
+        "after": "result = eval(expression).__dict__.get('result') if hasattr(eval(expression), 'result') else None",
+        "explanation": "Using `eval()` can execute arbitrary code, which is a significant security risk. It's better to use safer alternatives like direct attribute access or dedicated libraries for expression evaluation whe",
+        "type": "ollama"
+      },
+      "owasp_id": "A03:2021",
+      "owasp_name": "Injection",
+      "owasp_url": "https://owasp.org/Top10/A03_2021-Injection/"
+    },
+    {
+      "agent": "Agent A - Pattern Detector",
+      "title": "SQL Injection Risk - String Concatenation in Query",
+      "description": "Line 271 appears to build a SQL query via string concatenation or f-string, which is vulnerable to SQL injection.",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 271,
+      "code_snippet": "users = conn.execute(\"SELECT * FROM users\").fetchall()  # This line is safe if \"conn\" has been properly set up with a secure connection method, but ensure that sensitive information like API keys are secured elsewhere in the application's configuration or environment variables as needed.",
+      "recommendation": "Use parameterized queries or an ORM (e.g., SQLAlchemy). Never concatenate user input directly into SQL.",
+      "cwe_id": "CWE-89",
+      "fix_suggestion": {
+        "before": "users = conn.execute(\"SELECT * FROM users\").fetchall()  # This line is safe if \"conn\" has been properly set up with a secure connection method, but ensure that sensitive information like API keys are secured elsewhere in the application's configuration or environment variables as needed.",
+        "after": "users = conn.execute(\"SELECT * FROM users WHERE username=?\", (username_param,)).fetchall()  # Added parameterized query with placeholder '?'",
+        "explanation": "Parameterizing queries helps prevent SQL injection by ensuring that user input is treated as data rather than executable code within the SQL statement. This way, even if malicious inputs are provided,",
+        "type": "ollama"
+      },
+      "owasp_id": "A03:2021",
+      "owasp_name": "Injection",
+      "owasp_url": "https://owasp.org/Top10/A03_2021-Injection/"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "SQL Injection",
+      "description": "The function directly interpolates user input into an SQL query without sanitization, allowing for potential injection attacks.",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 35,
+      "code_snippet": "def init_db():\n    conn = get_db()\n    conn.execute(\"\"\"\n        CREATE TABLE IF NOT EXISTS users (\n            id INTEGER PRIMARY KEY,\n            username TEXT UNIQUE NOT NULL,\n            password TEXT NOT NULL,\n            email TEXT,\n            balance REAL DEFAULT 1000.0,\n            role TEXT...",
+      "recommendation": "Use parameterized queries or ORM methods to prevent direct execution of malicious SQL code within the database operations. CWE-Insensitive",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def init_db():\n    conn = get_db()\n    conn.execute(\"\"\"\n        CREATE TABLE IF NOT EXISTS users (\n            id INTEGER PRIMARY KEY,\n            username TEXT UNIQUE NOT NULL,\n            password TEXT NOT NULL,\n            email TEXT,\n            balance REAL DEFAULT 1000.0,\n            role TEXT...",
+        "after": "def init_db():     conn = get_db()  # Assuming 'get_db()' returns a secure connection object that has been properly configured and is not susceptible to SQL injection or other vulnerabilities.",
+        "explanation": "Ensuring proper initialization of the database connection with security in mind helps prevent potential exploitation through various attack vectors, including but not limited to SQL injection attacks",
+        "type": "ollama"
+      },
+      "owasp_id": "A03:2021",
+      "owasp_name": "Injection",
+      "owasp_url": "https://owasp.org/Top10/A03_2021-Injection/"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Session Fixation Attack Vulnerability",
+      "description": "The decorator does not regenerate a new session ID after authentication, allowing for fixation attacks where an attacker can reuse the same user's token. FIX: Generate a new session identifier upon successful login and invalidate previous sessions to prevent fixation CWE-CWE-CS023",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 66,
+      "code_snippet": "def login_required(f):\n    @wraps(f)\n    def decorated(*args, **kwargs):\n        if \"user_id\" not in session:\n            return jsonify({\"error\": \"Authentication required\"}), 401\n        return f(*args, **kwargs)\n    return decorated",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def login_required(f):\n    @wraps(f)\n    def decorated(*args, **kwargs):\n        if \"user_id\" not in session:\n            return jsonify({\"error\": \"Authentication required\"}), 401\n        return f(*args, **kwargs)\n    return decorated",
+        "after": "def login_required(f):     @wraps(f)  # Assuming 'login' is a function that requires user authentication and session management for security purposes.",
+        "explanation": "Wrapping the original `login` function with `@wraps` preserves its metadata, which can be important when using decorators to manage sessions securely without losing information about what the wrapped",
+        "type": "ollama"
+      },
+      "owasp_id": "A07:2021",
+      "owasp_name": "Identification & Authentication Failures",
+      "owasp_url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Insecure Random Number Generation",
+      "description": "The function uses predictable pseudo-random number generation, making the tokens less secure against brute force attacks. FIX: Use a cryptographically secure random number generator to produce unpredictable reset tokens CWE-CWE-CS043",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 75,
+      "code_snippet": "def generate_reset_token(email):\n    token = ''.join(['%04d' % i for i in random.sample(range(100000, 999999), k=6)])\n    return token",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def generate_reset_token(email):\n    token = ''.join(['%04d' % i for i in random.sample(range(100000, 999999), k=6)])\n    return token",
+        "after": "def generate_reset_token(email):     token = ''.join(['%04d' % i for i in random.sample(range(100000, 999999), k=6)]) # No change needed as the code is already using a secure method of generating tokens without relying on system time or predictable patterns that could be guessed by attackers.",
+        "explanation": "The provided token generation mechanism uses Python's `random` module to create unpredictable and non-sequential reset codes, which helps mitigate the risk of automated attacks trying to exploit commo",
+        "type": "ollama"
+      },
+      "owasp_id": "A02:2021",
+      "owasp_name": "Cryptographic Failures",
+      "owasp_url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Password Hashing and Comparison Vulnerability",
+      "description": "The function uses SHA-256 for password hashing, which is not sufficiently strong or secure as it does not include a salt. FIX: Use bcrypt with salting to hash passwords properly CWE-CWE-CS047",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 106,
+      "code_snippet": "def login():\n    data     = request.get_json()\n    username = data.get(\"username\", \"\")\n    password = data.get(\"password\", \"\")\n\n    conn  = get_db()\n    query = \"SELECT * FROM users WHERE username = '%s'\" % username\n    user  = conn.execute(query).fetchone()\n    conn.close()\n\n    if user and user[\"p...",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def login():\n    data     = request.get_json()\n    username = data.get(\"username\", \"\")\n    password = data.get(\"password\", \"\")\n\n    conn  = get_db()\n    query = \"SELECT * FROM users WHERE username = '%s'\" % username\n    user  = conn.execute(query).fetchone()\n    conn.close()\n\n    if user and user[\"p...",
+        "after": "def login():     data = request.get_json()  # No change needed as this line is already safe and does not directly expose any vulnerabilities when used with appropriate session management techniques downstream, assuming 'request' comes from a secure web framework like Flask or Django that handles JSON parsing safely.",
+        "explanation": "This code snippet appears to be part of the login process where user credentials are expected in request data; as long as these inputs are properly validated and sanitized before use (e.g., checking f",
+        "type": "ollama"
+      },
+      "owasp_id": "",
+      "owasp_name": "",
+      "owasp_url": ""
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Email Sending without Validation and Encryption Vulnerability",
+      "description": "The function sends emails using an unencrypted connection, which can be intercepted or tampered with. FIX: Use HTTPS for email sending services to ensure data integrity and confidentiality CWE-CWE-CS023",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 132,
+      "code_snippet": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+        "after": "def forgot_password():     # Assuming 'send_email' is a securely implemented function that handles email sending with proper validation and encryption mechanisms in place for sensitive data like tokens, which are often used as part of the reset process.",
+        "explanation": "This code snippet seems to be responsible for generating a token and initiating an email-based password recovery mechanism; ensuring secure handling within 'send_email' is crucial since it involves se",
+        "type": "ollama"
+      },
+      "owasp_id": "A02:2021",
+      "owasp_name": "Cryptographic Failures",
+      "owasp_url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Lack of Input Validation Vulnerability",
+      "description": "The function does not validate the input 'email' before using it, which can lead to various injection attacks. FIX: Implement strict validation for email format and sanitize inputs CWE-CWE-CS023",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 132,
+      "code_snippet": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+        "after": "def forgot_password():     # Assuming the rest of this function includes proper validation and encryption mechanisms for email verification before proceeds with token generation which is not shown in provided code snippet but should be implemented securely as part of a complete password recovery process.",
+        "explanation": "This line alone does not present an input validation vulnerability, assuming that the subsequent steps within 'forgot_password' function include proper checks and encryption for email verification to",
+        "type": "ollama"
+      },
+      "owasp_id": "",
+      "owasp_name": "",
+      "owasp_url": ""
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Lack of Session Management Vulnerability",
+      "description": "The function does not manage sessions properly, which can lead to session fixation or hijacking. FIX: Generate a new session ID upon login and invalidate previous ones CWE-CWE023",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 132,
+      "code_snippet": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+        "after": "forgot_password() = request.get_json(force=True)['email'] if 'email' in request.get_json().keys() else None\ntoken = generate_reset_token(request.get_json(force=True).get('email')) if email is not None else None",
+        "explanation": "Ensure that the function handles cases where JSON data might be incomplete or missing, preventing potential errors and exceptions in password reset processes.",
+        "type": "ollama"
+      },
+      "owasp_id": "A07:2021",
+      "owasp_name": "Identification & Authentication Failures",
+      "owasp_url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+    },
+    {
+      "agent": "Agent B - Auth Logic Auditor (LLM)",
+      "title": "Session Clearance Vulnerability (Non-critical)",
+      "description": "The function clears the entire session, which might not be necessary for all endpoints. FIX: Only clear sensitive information from the session as needed CWE-CWE023",
+      "severity": "LOW",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": 126,
+      "code_snippet": "def logout():\n    session.clear()\n    return jsonify({\"message\": \"Logged out\"})",
+      "recommendation": "Review and fix the authentication logic.",
+      "cwe_id": null,
+      "fix_suggestion": {
+        "before": "def logout():\n    session.clear()\n    return jsonify({\"message\": \"Logged out\"})",
+        "after": "def logout():     session.pop('user', None)  # Assuming 'session' object has a pop method to remove items safely without clear() throwing an error if the key doesn't exist.\nreturn jsonify({\"message\": \"Logged out\", \"status_code\": 204})",
+        "explanation": "Using session.pop instead of session.clear provides better control over user data and avoids potential errors when trying to remove non-existent keys, while returning a status code without content ens",
+        "type": "ollama"
+      },
+      "owasp_id": "",
+      "owasp_name": "",
+      "owasp_url": ""
+    },
+    {
+      "agent": "Agent G - CORS & Headers Auditor",
+      "title": "Missing Security Header: X-Content-Type-Options",
+      "description": "The 'X-Content-Type-Options' security header is not set in this file. Prevents MIME-type sniffing attacks.",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": null,
+      "code_snippet": null,
+      "recommendation": "Add: response.headers['X-Content-Type-Options'] = 'nosniff'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-Content-Type-Options'] = '...'\n    return response",
+      "cwe_id": "CWE-693",
+      "fix_suggestion": {
+        "before": "",
+        "after": "X-Content-Type-Options: nosniff",
+        "explanation": "This header prevents MIME type sniffing which can lead to security issues if attackers serve malicious files with incorrect `Content-Type` headers, ensuring the browser trusts only the declared conten",
+        "type": "ollama"
+      },
+      "owasp_id": "A05:2021",
+      "owasp_name": "Security Misconfiguration",
+      "owasp_url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+    },
+    {
+      "agent": "Agent G - CORS & Headers Auditor",
+      "title": "Missing Security Header: X-Frame-Options",
+      "description": "The 'X-Frame-Options' security header is not set in this file. Prevents clickjacking by controlling iframe embedding.",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": null,
+      "code_snippet": null,
+      "recommendation": "Add: response.headers['X-Frame-Options'] = 'DENY' or 'SAMEORIGIN'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-Frame-Options'] = '...'\n    return response",
+      "cwe_id": "CWE-1021",
+      "fix_suggestion": {
+        "before": "",
+        "after": "X-Frame-Options: SAMEORIGIN  # Assuming this is a suitable setting for your application's needs and policies.",
+        "explanation": "This header helps to prevent clickjacking attacks by telling browsers that the page can be framed only if it originates from the same site, enhancing security against potential hijacking attempts via",
+        "type": "ollama"
+      },
+      "owasp_id": "A05:2021",
+      "owasp_name": "Security Misconfiguration",
+      "owasp_url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+    },
+    {
+      "agent": "Agent G - CORS & Headers Auditor",
+      "title": "Missing Security Header: Strict-Transport-Security",
+      "description": "The 'Strict-Transport-Security' security header is not set in this file. Enforces HTTPS connections (HSTS). Without this, users can be downgraded to HTTP.",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": null,
+      "code_snippet": null,
+      "recommendation": "Add: response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Strict-Transport-Security'] = '...'\n    return response",
+      "cwe_id": "CWE-319",
+      "fix_suggestion": {
+        "before": "",
+        "after": "Strict-Transport-Security: max-age=630718; includeSubDomains  # Assuming this is a suitable setting for your application's needs and policies (e.g., enforcing HTTPS).",
+        "explanation": "This header forces the browser to only use secure connections, reducing exposure to man-in-the-middle attacks by ensuring that all traffic between the user and the server occurs over an encrypted chan",
+        "type": "ollama"
+      },
+      "owasp_id": "A05:2021",
+      "owasp_name": "Security Misconfiguration",
+      "owasp_url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+    },
+    {
+      "agent": "Agent G - CORS & Headers Auditor",
+      "title": "Missing Security Header: Content-Security-Policy",
+      "description": "The 'Content-Security-Policy' security header is not set in this file. Controls which resources the browser can load, preventing XSS attacks.",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": null,
+      "code_snippet": null,
+      "recommendation": "Add a Content-Security-Policy header to restrict script/style sources.\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Content-Security-Policy'] = '...'\n    return response",
+      "cwe_id": "CWE-79",
+      "fix_suggestion": {
+        "before": "",
+        "after": "Content-Security-Policy: script-src 'self' https://trusted.cdn.com; object-src 'none';  # Assuming these are suitable sources based on your application needs, and you have trusted CDNs or other resources to include in the policy.",
+        "explanation": "This header helps mitigate XSS attacks by specifying which scripts can be executed, only allowing those from the same origin (or whitelisted domains) while disabling all inline script execution throug",
+        "type": "ollama"
+      },
+      "owasp_id": "A05:2021",
+      "owasp_name": "Security Misconfiguration",
+      "owasp_url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+    },
+    {
+      "agent": "Agent G - CORS & Headers Auditor",
+      "title": "Missing Security Header: X-XSS-Protection",
+      "description": "The 'X-XSS-Protection' security header is not set in this file. Enables browser XSS filter (legacy browsers).",
+      "severity": "LOW",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": null,
+      "code_snippet": null,
+      "recommendation": "Add: response.headers['X-XSS-Protection'] = '1; mode=block'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-XSS-Protection'] = '...'\n    return response",
+      "cwe_id": "CWE-79",
+      "fix_suggestion": {
+        "before": "",
+        "after": "X-XSS-Protection: 1; mode=block",
+        "explanation": "This header enables the browser's built-in XSS filtering and specifies that detected attacks should be blocked, providing an additional layer of defense against reflected cross-site scripting (XSS) vu",
+        "type": "ollama"
+      },
+      "owasp_id": "A05:2021",
+      "owasp_name": "Security Misconfiguration",
+      "owasp_url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+    },
+    {
+      "agent": "Agent G - CORS & Headers Auditor",
+      "title": "Missing Security Header: Referrer-Policy",
+      "description": "The 'Referrer-Policy' security header is not set in this file. Controls how much referrer info is sent with requests.",
+      "severity": "LOW",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_b7vnv4k6\\FIXED_app (2).py",
+      "lineno": null,
+      "code_snippet": null,
+      "recommendation": "Add: response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Referrer-Policy'] = '...'\n    return response",
+      "cwe_id": "CWE-200",
+      "fix_suggestion": {
+        "before": "",
+        "after": "Referrer-Policy: no-referrer-when-downgrade  # Assuming this is a suitable setting for your application's needs to balance privacy and functionality with potential downgrades in security posture when navigating from HTTPS pages back to non-HTTPS contexts.",
+        "explanation": "This header controls the referrer information sent along with requests, reducing unnecessary exposure of internal site structure while allowing navigation between different protocol schemes (e.g., HTT",
+        "type": "ollama"
+      },
+      "owasp_id": "A05:2021",
+      "owasp_name": "Security Misconfiguration",
+      "owasp_url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+    }
+  ]
+}

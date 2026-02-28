@@ -1,997 +1,450 @@
 """
-SentinelAI - Streamlit Security Dashboard
+SentinelAI - Redesigned Dashboard
 Run with: streamlit run dashboard.py
 """
 import streamlit as st
-import json
-import subprocess
-import os
-import sys
-import time
+import json, os, sys, subprocess, time, datetime, tempfile, zipfile, shutil, html as _html
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, Counter
 
-# ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="SentinelAI",
+    page_title="SentinelAI · Security Auditor",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ── Custom CSS ─────────────────────────────────────────────────────────────────
+# ── PROJECT ROOT ───────────────────────────────────────────────────────────
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+MAIN_PY      = os.path.join(PROJECT_ROOT, "main.py")
+
+# ── GLOBAL CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
 
-/* Global */
+:root {
+    --bg:       #060a0f;
+    --surface:  #0b1119;
+    --card:     #0f1822;
+    --border:   #1a2535;
+    --border2:  #243548;
+    --text:     #cdd6e0;
+    --muted:    #4a6275;
+    --accent:   #00c8ff;
+    --accent2:  #0078aa;
+    --crit:     #ff3d3d;
+    --high:     #ff8800;
+    --med:      #f5c400;
+    --low:      #00d68f;
+}
+
 html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-    background-color: #080c12;
-    color: #c9d4e0;
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
 }
-
-.stApp {
-    background: #080c12;
-}
-
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background: #0d1117;
-    border-right: 1px solid #1e2d40;
-}
-
-section[data-testid="stSidebar"] * {
-    color: #8ba5c0 !important;
-}
-
-/* Hide default streamlit header */
-header[data-testid="stHeader"] { background: transparent; }
+.stApp { background: var(--bg); }
+header[data-testid="stHeader"] { background: transparent !important; }
 #MainMenu, footer { visibility: hidden; }
+.block-container { padding-top: 1.5rem !important; max-width: 1400px; }
 
-/* Title */
-.sentinel-title {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 2.8rem;
-    font-weight: 700;
-    letter-spacing: 4px;
-    color: #00d4ff;
-    text-transform: uppercase;
-    text-shadow: 0 0 30px rgba(0,212,255,0.4);
-    margin: 0;
+/* ── SIDEBAR ── */
+section[data-testid="stSidebar"] {
+    background: var(--surface) !important;
+    border-right: 1px solid var(--border) !important;
+    padding-top: 0 !important;
 }
+section[data-testid="stSidebar"] > div:first-child { padding-top: 0; }
 
-.sentinel-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.75rem;
-    color: #3d6b8a;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    margin-top: 2px;
+/* ── RADIO BUTTONS → nav pills ── */
+div[data-testid="stRadio"] > div { gap: 0 !important; }
+div[data-testid="stRadio"] label {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+    width: 100% !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    color: var(--muted) !important;
+    letter-spacing: 0.3px !important;
 }
+div[data-testid="stRadio"] label:hover { background: rgba(0,200,255,0.05) !important; color: var(--accent) !important; }
+div[data-testid="stRadio"] label[data-checked="true"] {
+    background: rgba(0,200,255,0.08) !important;
+    color: var(--accent) !important;
+    border-left: 2px solid var(--accent) !important;
+}
+div[data-testid="stRadio"] p { font-size: 0.82rem !important; font-weight: 500 !important; }
 
-/* Risk score card */
-.risk-card {
-    background: linear-gradient(135deg, #0d1825 0%, #0a1520 100%);
-    border: 1px solid #1e3a52;
-    border-radius: 12px;
-    padding: 28px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.risk-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #00d4ff, transparent);
-}
-
-.risk-score-num {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 5rem;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.risk-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #3d6b8a;
-    margin-top: 8px;
-}
-
-.risk-level-text {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-top: 12px;
-    letter-spacing: 1px;
-}
-
-/* Stat cards */
-.stat-card {
-    background: #0d1117;
-    border: 1px solid #1e2d40;
-    border-radius: 10px;
-    padding: 20px;
-    text-align: center;
-}
-
-.stat-num {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 2.6rem;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.stat-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: #3d6b8a;
-    margin-top: 6px;
-}
-
-/* Finding cards */
-.finding-card {
-    background: #0d1117;
-    border-left: 3px solid;
-    border-radius: 0 8px 8px 0;
-    padding: 16px 20px;
-    margin-bottom: 10px;
-    transition: all 0.2s;
-}
-
-.finding-card:hover {
-    background: #111820;
-    transform: translateX(2px);
-}
-
-.finding-title {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #e2eaf2;
-    margin-bottom: 4px;
-}
-
-.finding-meta {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.68rem;
-    color: #3d6b8a;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-}
-
-.finding-desc {
-    font-size: 0.82rem;
-    color: #7a9ab5;
-    line-height: 1.5;
-    margin-bottom: 10px;
-}
-
-.finding-rec {
-    font-size: 0.78rem;
-    color: #5a8a6a;
-    line-height: 1.4;
-    padding: 8px 12px;
-    background: rgba(0,180,100,0.05);
-    border-left: 2px solid #2a6a3a;
-    border-radius: 0 4px 4px 0;
-}
-
-.code-block {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72rem;
-    background: #050810;
-    border: 1px solid #1a2535;
-    border-radius: 6px;
-    padding: 10px 14px;
-    color: #e07a5f;
-    margin: 8px 0;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-    max-width: 100%;
-}
-
-/* Severity badges */
-.badge {
-    display: inline-block;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 2px;
-    padding: 3px 10px;
-    border-radius: 3px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.badge-CRITICAL { background: rgba(255,50,50,0.15); color: #ff4444; border: 1px solid rgba(255,50,50,0.3); }
-.badge-HIGH     { background: rgba(255,140,0,0.15); color: #ff8c00; border: 1px solid rgba(255,140,0,0.3); }
-.badge-MEDIUM   { background: rgba(255,210,0,0.12); color: #ffd200; border: 1px solid rgba(255,210,0,0.3); }
-.badge-LOW      { background: rgba(0,200,120,0.12); color: #00c878; border: 1px solid rgba(0,200,120,0.3); }
-
-/* CWE tag */
-.cwe-tag {
-    display: inline-block;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    background: rgba(0,150,255,0.08);
-    color: #3a8abf;
-    border: 1px solid rgba(0,150,255,0.15);
-    border-radius: 3px;
-    margin-left: 8px;
-}
-
-/* Section headers */
-.section-header {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #8ab4cc;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    border-bottom: 1px solid #1e2d40;
-    padding-bottom: 10px;
-    margin: 28px 0 18px 0;
-}
-
-/* Agent pill */
-.agent-pill {
-    display: inline-block;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    background: rgba(100,180,255,0.07);
-    color: #4a7a9a;
-    border: 1px solid rgba(100,180,255,0.12);
-    border-radius: 3px;
-    margin-left: 6px;
-}
-
-/* Progress bars */
-.sev-bar-wrap {
-    margin-bottom: 14px;
-}
-.sev-bar-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-    display: flex;
-    justify-content: space-between;
-}
-.sev-bar {
-    height: 6px;
-    border-radius: 3px;
-    background: #1a2535;
-    overflow: hidden;
-}
-.sev-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.8s ease;
-}
-
-/* Scan form */
-.scan-box {
-    background: #0d1117;
-    border: 1px solid #1e2d40;
-    border-radius: 10px;
-    padding: 24px;
-    margin-bottom: 20px;
-}
-
-/* Terminal output */
-.terminal {
-    background: #050810;
-    border: 1px solid #1a2535;
-    border-radius: 8px;
-    padding: 16px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.75rem;
-    color: #3aff8a;
-    line-height: 1.6;
-    max-height: 300px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-}
-
-/* Divider */
-.divider {
-    border: none;
-    border-top: 1px solid #1e2d40;
-    margin: 24px 0;
-}
-
-/* File path */
-.filepath {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    color: #3d6b8a;
-}
-
-/* Streamlit overrides */
-.stSelectbox label, .stTextInput label, .stCheckbox label {
-    font-family: 'Share Tech Mono', monospace !important;
-    font-size: 0.7rem !important;
-    letter-spacing: 2px !important;
-    text-transform: uppercase !important;
-    color: #3d6b8a !important;
-}
-
-div[data-baseweb="select"] {
-    background: #0d1117 !important;
-    border-color: #1e2d40 !important;
-}
-
-.stButton button {
-    background: linear-gradient(135deg, #003d5c, #005a80) !important;
-    color: #00d4ff !important;
-    border: 1px solid #007aaa !important;
-    font-family: 'Rajdhani', sans-serif !important;
-    font-size: 1rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 3px !important;
-    text-transform: uppercase !important;
-    padding: 10px 28px !important;
-    border-radius: 6px !important;
-    transition: all 0.2s !important;
-}
-
-.stButton button:hover {
-    background: linear-gradient(135deg, #004d70, #006a94) !important;
-    box-shadow: 0 0 20px rgba(0,180,255,0.2) !important;
-}
-
-.stTextInput input {
-    background: #050810 !important;
-    border-color: #1e2d40 !important;
-    color: #c9d4e0 !important;
-    font-family: 'Share Tech Mono', monospace !important;
+/* ── INPUTS ── */
+.stTextInput input, .stSelectbox div[data-baseweb="select"] {
+    background: var(--card) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: 8px !important;
+    color: var(--text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
     font-size: 0.8rem !important;
 }
+.stTextInput input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(0,200,255,0.15) !important; }
+
+/* ── BUTTONS ── */
+.stButton button {
+    background: linear-gradient(135deg, #003d5c 0%, #00527a 100%) !important;
+    color: var(--accent) !important;
+    border: 1px solid rgba(0,200,255,0.3) !important;
+    font-family: 'Syne', sans-serif !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    padding: 10px 24px !important;
+    border-radius: 8px !important;
+    transition: all 0.2s !important;
+}
+.stButton button:hover {
+    background: linear-gradient(135deg, #004d70 0%, #006694 100%) !important;
+    box-shadow: 0 4px 24px rgba(0,200,255,0.2) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── EXPANDER ── */
+details { border: 1px solid var(--border) !important; border-radius: 10px !important; margin-bottom: 8px !important; overflow: hidden; }
+details summary {
+    padding: 14px 18px !important;
+    background: var(--card) !important;
+    cursor: pointer !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    list-style: none !important;
+}
+details[open] summary { border-bottom: 1px solid var(--border); }
+details > div { background: var(--surface) !important; padding: 16px !important; }
+
+/* ── MULTISELECT ── */
+.stMultiSelect span[data-baseweb="tag"] {
+    background: rgba(0,200,255,0.12) !important;
+    border: 1px solid rgba(0,200,255,0.25) !important;
+    border-radius: 4px !important;
+    font-size: 0.72rem !important;
+}
+
+/* ── DIVIDER ── */
+hr { border-color: var(--border) !important; margin: 12px 0 !important; }
+
+/* ── UPLOAD ── */
+.stFileUploader { border-color: var(--border2) !important; }
+section[data-testid="stFileUploadDropzone"] {
+    background: rgba(0,200,255,0.03) !important;
+    border: 1.5px dashed var(--border2) !important;
+    border-radius: 10px !important;
+    transition: all 0.2s !important;
+}
+section[data-testid="stFileUploadDropzone"]:hover { border-color: var(--accent) !important; }
+
+/* ── SPINNER ── */
+.stSpinner > div { border-top-color: var(--accent) !important; }
+
+/* ── TABS ── */
+button[data-baseweb="tab"] {
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+    color: var(--muted) !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--accent) !important;
+    border-bottom-color: var(--accent) !important;
+}
+
+/* ── CHECKBOX ── */
+.stCheckbox label p { font-size: 0.82rem !important; color: var(--text) !important; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
 </style>
 """, unsafe_allow_html=True)
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
-SEVERITY_COLORS = {
-    "CRITICAL": "#ff4444",
-    "HIGH":     "#ff8c00",
-    "MEDIUM":   "#ffd200",
-    "LOW":      "#00c878",
+# ── HELPERS ────────────────────────────────────────────────────────────────
+SEV_CFG = {
+    "CRITICAL": {"color": "#ff3d3d", "bg": "rgba(255,61,61,0.08)",   "border": "rgba(255,61,61,0.25)",  "icon": "⬛", "label": "Critical"},
+    "HIGH":     {"color": "#ff8800", "bg": "rgba(255,136,0,0.08)",   "border": "rgba(255,136,0,0.25)",  "icon": "🟧", "label": "High"},
+    "MEDIUM":   {"color": "#f5c400", "bg": "rgba(245,196,0,0.08)",   "border": "rgba(245,196,0,0.25)",  "icon": "🟨", "label": "Medium"},
+    "LOW":      {"color": "#00d68f", "bg": "rgba(0,214,143,0.08)",   "border": "rgba(0,214,143,0.25)",  "icon": "🟩", "label": "Low"},
 }
 
-RISK_COLORS = {
-    "SAFE":     "#00c878",
-    "LOW":      "#00c878",
-    "MEDIUM":   "#ffd200",
-    "HIGH":     "#ff8c00",
-    "CRITICAL": "#ff4444",
-}
+def sev(s): return SEV_CFG.get(s, {"color":"#888","bg":"transparent","border":"#333","icon":"⬜","label":s})
 
-def get_risk_color(risk_level: str) -> str:
-    for key, color in RISK_COLORS.items():
-        if key in risk_level.upper():
-            return color
-    return "#888"
+def risk_color(rl):
+    rl = rl.upper()
+    if "CRITICAL" in rl: return "#ff3d3d"
+    if "HIGH" in rl:     return "#ff8800"
+    if "MEDIUM" in rl:   return "#f5c400"
+    return "#00d68f"
 
-def load_report(path: str) -> dict:
-    with open(path) as f:
+def plain_english(title):
+    t = title.lower()
+    m = {
+        "hardcoded secret":   "A password or API key is written directly in the code — anyone who reads it can steal access.",
+        "api key":            "A live API key is exposed in your code and visible to anyone with repo access.",
+        "sql injection":      "Attackers can manipulate your database to steal, modify, or delete all your data.",
+        "eval()":             "Your app can be tricked into running any code an attacker sends it.",
+        "debug mode":         "Debug mode leaks stack traces and internal info directly to attackers.",
+        "plaintext password": "Passwords are stored without hashing — one database breach exposes them all.",
+        "bypass":             "A logic flaw lets attackers skip authentication entirely.",
+        "privilege":          "A regular user can trick the app into granting them admin access.",
+        "unauthenticated":    "This route has no login check — any internet user can access it.",
+        "unsanitized":        "Raw user input flows into a dangerous function without any safety checks.",
+        "dependency":         "A library you use has a known security flaw attackers can exploit.",
+        "cors":               "Any website can make requests to your API and steal your users' data.",
+        "header":             "A browser security protection is missing, leaving users exposed.",
+        "weak hash":          "MD5/SHA1 are broken — modern hardware cracks them in seconds.",
+        "md5":                "MD5 is cryptographically broken and unsuitable for passwords or sensitive data.",
+        "sha1":               "SHA1 is deprecated and vulnerable to collision attacks.",
+        "ssl":                "SSL verification is disabled — attackers can intercept encrypted traffic.",
+        "insecure random":    "The random generator is predictable — attackers can guess tokens and reset codes.",
+        "git history":        "A secret was committed to git history. Even if deleted, it's visible forever.",
+        "webhook":            "Webhook requests aren't verified — attackers can forge payment or event data.",
+        "csrf":               "Missing CSRF protection allows attackers to make requests on behalf of your users.",
+    }
+    for k, v in m.items():
+        if k in t: return v
+    return "A security vulnerability was detected that could be exploited by attackers."
+
+def load_report(path):
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
-def render_finding_card(f: dict):
-    sev = f.get("severity", "LOW")
-    color = SEVERITY_COLORS.get(sev, "#888")
-    cwe = f.get("cwe_id", "")
-    agent = f.get("agent", "")
-    lineno = f.get("lineno", "?")
-    filepath = f.get("filepath", "")
-
-    cwe_html = f'<span class="cwe-tag">{cwe}</span>' if cwe else ""
-    # Shorten agent name for display
-    agent_short = agent.split(" - ")[0].split(" [")[0].strip()
-    agent_html = f'<span class="agent-pill">{agent_short}</span>'
-
-    snippet = f.get("code_snippet", "")
-    snippet_html = ""
-    if snippet:
-        import html
-        snippet_html = f'<div class="code-block">{html.escape(snippet[:200])}</div>'
-
-    rec = f.get("recommendation", "")
-    rec_html = f'<div class="finding-rec">💡 {rec}</div>' if rec else ""
-
-    st.markdown(f"""
-    <div class="finding-card" style="border-left-color: {color};">
-        <div class="finding-title">
-            <span class="badge badge-{sev}">{sev}</span>
-            {cwe_html}
-            &nbsp;&nbsp;{f.get('title', '')}
-        </div>
-        <div class="finding-meta">
-            {agent_html}
-            &nbsp;·&nbsp;
-            <span class="filepath">{filepath}</span>
-            &nbsp;·&nbsp; Line {lineno}
-        </div>
-        <div class="finding-desc">{f.get('description', '')}</div>
-        {snippet_html}
-        {rec_html}
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_sev_bar(label, count, total, color):
-    pct = int((count / max(total, 1)) * 100)
-    st.markdown(f"""
-    <div class="sev-bar-wrap">
-        <div class="sev-bar-label">
-            <span style="color:{color}">{label}</span>
-            <span style="color:#5a7a90">{count}</span>
-        </div>
-        <div class="sev-bar">
-            <div class="sev-bar-fill" style="width:{pct}%; background:{color};"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── SIDEBAR ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style="padding: 10px 0 24px 0;">
-        <div style="font-family:'Rajdhani',sans-serif; font-size:1.4rem; font-weight:700;
-                    color:#00d4ff; letter-spacing:3px;">🛡️ SENTINEL<span style="color:#3d6b8a">AI</span></div>
-        <div style="font-family:'Share Tech Mono',monospace; font-size:0.6rem;
-                    color:#2a4a6a; letter-spacing:2px; margin-top:2px;">SECURITY AUDIT SYSTEM</div>
+    <div style="padding:28px 20px 20px 20px; border-bottom:1px solid #1a2535;">
+        <div style="font-family:'Syne',sans-serif; font-size:1.5rem; font-weight:800;
+                    color:#00c8ff; letter-spacing:1px; line-height:1;">🛡️ SentinelAI</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.6rem;
+                    color:#2a4a62; letter-spacing:2.5px; margin-top:5px; text-transform:uppercase;">
+            Multi-Agent Security Auditor
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("<div style='padding:8px 0;'>", unsafe_allow_html=True)
+    mode = st.radio("NAV", ["🔍  New Scan", "📊  View Results"], label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
+
     st.markdown("---")
 
-    mode = st.radio(
-        "MODE",
-        ["📊  View Report", "🔍  Run New Scan"],
-        label_visibility="collapsed"
+    # Agent status panel
+    agents = [
+        ("A", "Pattern Detector",   True),
+        ("B", "Auth Logic · LLM",   True),
+        ("C", "Data Flow",          True),
+        ("D", "Risk Scorer",        True),
+        ("E", "Dependencies",       True),
+        ("F", "Git History",        True),
+        ("G", "CORS & Headers",     True),
+        ("H", "Cryptography",       True),
+        ("I", "Auto-Fix · LLM",     True),
+    ]
+    agent_rows = "".join(
+        f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">'
+        f'<div style="width:6px;height:6px;border-radius:50%;background:{"#00d68f" if active else "#2a3a4a"};flex-shrink:0;"></div>'
+        f'<span style="font-family:\'JetBrains Mono\',monospace;font-size:0.67rem;color:#3a5a72;font-weight:500;">Agent {letter}</span>'
+        f'<span style="font-size:0.67rem;color:#2a4255;">{name}</span>'
+        f'</div>'
+        for letter, name, active in agents
     )
+    st.markdown(f"""
+    <div style="padding:4px 4px 12px 4px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:#1e3a52;
+                    letter-spacing:2px;text-transform:uppercase;padding:8px 0 10px 0;">
+            Agents Online
+        </div>
+        {agent_rows}
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("""
-    <div style="font-family:'Share Tech Mono',monospace; font-size:0.6rem;
-                color:#1e3a52; letter-spacing:1px; margin-top:20px;">
-        AGENTS ACTIVE<br><br>
-        <span style="color:#1a5a3a">●</span> Agent A · Pattern<br>
-        <span style="color:#1a5a3a">●</span> Agent B · Auth LLM<br>
-        <span style="color:#1a5a3a">●</span> Agent C · Data Flow<br>
-        <span style="color:#1a5a3a">●</span> Agent D · Risk Score<br>
-        <span style="color:#1a5a3a">●</span> Agent E · Dependencies<br>
-        <span style="color:#1a5a3a">●</span> Agent F · Git History<br>
-        <span style="color:#1a5a3a">●</span> Agent G · CORS/Headers<br>
-        <span style="color:#1a5a3a">●</span> Agent H · Cryptography
+    <div style="padding:8px 4px;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:#1a3040;line-height:2;">
+        v2.0 · Python · Ollama/phi3<br>
+        GPU-accelerated · Local LLM<br>
+        <a href="https://github.com/BM840/SentinelAI" style="color:#1e4060;text-decoration:none;">github.com/BM840/SentinelAI</a>
     </div>
     """, unsafe_allow_html=True)
 
 
-# ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div style="display:flex; align-items:flex-end; gap:16px; padding: 10px 0 24px 0;">
-    <div>
-        <div class="sentinel-title">🛡️ SentinelAI</div>
-        <div class="sentinel-sub">Multi-Agent AI Security Auditor · Python Web Applications</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════
+#  MODE: NEW SCAN
+# ══════════════════════════════════════════════════════════════════════════
+if "🔍" in mode:
+    import tempfile, zipfile as _zip
 
+    scan_target  = None
+    cleanup_dir  = None
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MODE: VIEW REPORT
-# ══════════════════════════════════════════════════════════════════════════════
-if "📊" in mode:
-    import datetime, os as _os, html as _html
-
-    def risk_plain_english(risk_level, score):
-        r = risk_level.upper()
-        if "CRITICAL" in r:
-            return {"emoji": "🚨", "headline": "Your code has serious security problems",
-                "detail": "Several critical vulnerabilities were found that could allow hackers to steal data, bypass logins, or take control of your application. Do NOT deploy this code without fixing these issues first.",
-                "action": "Fix CRITICAL and HIGH issues immediately before going live.",
-                "color": "#ff4444", "bg": "rgba(255,50,50,0.06)", "border": "#5a1a1a"}
-        elif "HIGH" in r:
-            return {"emoji": "⚠️", "headline": "Your code has significant security risks",
-                "detail": "Important vulnerabilities were found that need attention. These could be exploited by attackers if your application is publicly accessible.",
-                "action": "Review and fix HIGH severity issues before deploying.",
-                "color": "#ff8c00", "bg": "rgba(255,140,0,0.06)", "border": "#5a3a0a"}
-        elif "MEDIUM" in r:
-            return {"emoji": "⚡", "headline": "Your code has some security concerns",
-                "detail": "A few security issues were found. They are not immediately dangerous but should be addressed.",
-                "action": "Plan to fix these issues in your next update.",
-                "color": "#ffd200", "bg": "rgba(255,210,0,0.06)", "border": "#4a4a0a"}
-        else:
-            return {"emoji": "✅", "headline": "Your code looks reasonably secure",
-                "detail": "Only minor issues were found. Your application appears to follow reasonable security practices.",
-                "action": "Review the low-severity findings at your convenience.",
-                "color": "#00c878", "bg": "rgba(0,200,120,0.06)", "border": "#0a4a2a"}
-
-    def severity_info(sev):
-        return {
-            "CRITICAL": {"label": "Must Fix Now",       "color": "#ff4444", "bg": "rgba(255,50,50,0.1)",   "icon": "🚨", "meaning": "Can lead to hacking or data theft"},
-            "HIGH":     {"label": "Fix Before Launch",  "color": "#ff8c00", "bg": "rgba(255,140,0,0.1)",   "icon": "🔴", "meaning": "Serious vulnerability"},
-            "MEDIUM":   {"label": "Fix Soon",           "color": "#ffd200", "bg": "rgba(255,210,0,0.1)",   "icon": "🟡", "meaning": "Moderate security concern"},
-            "LOW":      {"label": "Fix When Possible",  "color": "#00c878", "bg": "rgba(0,200,120,0.1)",   "icon": "🟢", "meaning": "Minor issue"},
-        }.get(sev, {"label": sev, "color": "#888", "bg": "rgba(0,0,0,0.1)", "icon": "⚪", "meaning": ""})
-
-    def what_it_means(title):
-        t = title.lower()
-        if "hardcoded secret" in t or "api key" in t or "exposed" in t:
-            return "A password or secret key is written directly in the code. Anyone who sees your code can steal it."
-        elif "sql injection" in t:
-            return "Hackers could manipulate your database to steal, delete, or modify all your data."
-        elif "eval()" in t or "code execution" in t:
-            return "Your app can be tricked into running malicious code sent by an attacker."
-        elif "debug mode" in t:
-            return "Debug mode is on — this shows detailed error info to attackers."
-        elif "plaintext password" in t:
-            return "Passwords are stored without encryption — easily stolen if your database is breached."
-        elif "bypass" in t:
-            return "A flaw in the login logic means anyone can access protected areas without a password."
-        elif "privilege escalation" in t:
-            return "A regular user could trick the system into giving them admin access."
-        elif "unauthenticated" in t:
-            return "This page has no login check — anyone on the internet can access it."
-        elif "unsanitized" in t:
-            return "User input flows directly into dangerous operations without any safety checks."
-        elif "dependency" in t or "vulnerable" in t:
-            return "You are using an outdated library with known security holes attackers can exploit."
-        elif "cors" in t or "wildcard" in t:
-            return "Any website on the internet can make requests to your app and steal user data."
-        elif "missing security header" in t:
-            return "A browser security protection is not configured, making your users vulnerable."
-        elif "weak hash" in t or "md5" in t or "sha1" in t:
-            return "You are using an outdated encryption method that can be cracked by modern computers."
-        elif "ssl" in t or "tls" in t or "certificate" in t:
-            return "Your encrypted connection can be intercepted — attackers can read private data."
-        elif "insecure random" in t:
-            return "The random number generator is predictable — attackers could guess tokens or passwords."
-        elif "git history" in t:
-            return "A secret was found in your code history. Even if deleted, it is visible to anyone who downloads your repo."
-        return "A security vulnerability was detected in your code."
-
-    # Find reports
-    report_files = list(Path(".").rglob("sentinel_report.json"))
-    if not report_files:
-        st.markdown("""
-        <div style="text-align:center; padding:80px 40px;">
-            <div style="font-size:3rem; margin-bottom:16px;">📂</div>
-            <div style="font-size:1.2rem; color:#4a7a9a; font-weight:600; margin-bottom:8px;">
-                No scan results yet
-            </div>
-            <div style="font-size:0.85rem; color:#4a6a7a;">
-                Go to <b>Run New Scan</b> in the sidebar, upload your Python file or ZIP,
-                and click Launch Scan.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.stop()
-
-    report_files_sorted = sorted(report_files, key=lambda p: p.stat().st_mtime, reverse=True)
-    def make_label(p):
-        mtime = datetime.datetime.fromtimestamp(p.stat().st_mtime)
-        return f"Scanned on {mtime.strftime('%d %b %Y at %H:%M')}  —  {p.name}"
-    report_map = {make_label(p): str(p) for p in report_files_sorted}
-
-    if len(report_files_sorted) > 1:
-        selected_label = st.selectbox("Choose a scan report:", list(report_map.keys()))
-        selected = report_map[selected_label]
-    else:
-        selected = str(report_files_sorted[0])
-
-    data      = load_report(selected)
-    summary   = data.get("summary", {})
-    findings  = data.get("findings", [])
-    risk_score   = summary.get("risk_score", 0)
-    risk_level   = summary.get("risk_level", "UNKNOWN")
-    risk_color   = get_risk_color(risk_level)
-    total        = summary.get("total_findings", 0)
-    sev_breakdown= summary.get("severity_breakdown", {})
-    duration     = summary.get("scan_duration_seconds", 0)
-    target       = summary.get("target_path", "unknown")
-    scanned_files= summary.get("files_scanned", [])
-    report_mtime = datetime.datetime.fromtimestamp(_os.path.getmtime(selected))
-    scan_time_str= report_mtime.strftime("%d %b %Y at %H:%M")
-
-    # Plain English headline banner
-    risk_info  = risk_plain_english(risk_level, risk_score)
-    n_critical = sev_breakdown.get("CRITICAL", 0)
-    n_high     = sev_breakdown.get("HIGH", 0)
-    n_medium   = sev_breakdown.get("MEDIUM", 0)
-    n_low      = sev_breakdown.get("LOW", 0)
-    fname = (scanned_files[0].replace("\\", "/").split("/")[-1]
-             if scanned_files else target.replace("\\", "/").split("/")[-1])
-
-    st.markdown(f"""
-    <div style="background:{risk_info['bg']}; border:1px solid {risk_info['border']};
-                border-radius:12px; padding:24px 28px; margin-bottom:24px;">
-        <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:12px;">
-            <span style="font-size:2.2rem; line-height:1;">{risk_info['emoji']}</span>
-            <div>
-                <div style="font-size:1.3rem; font-weight:700; color:{risk_info['color']}; margin-bottom:4px;">
-                    {risk_info['headline']}
-                </div>
-                <div style="font-size:0.8rem; color:#5a8a9a;">
-                    File: <b style="color:#8abacc;">{fname}</b>
-                    &nbsp;·&nbsp; {scan_time_str}
-                    &nbsp;·&nbsp; {len(scanned_files)} file(s) scanned &nbsp;·&nbsp; {duration}s
-                </div>
-            </div>
-        </div>
-        <div style="font-size:0.9rem; color:#a0bac8; line-height:1.7; margin-bottom:14px;">
-            {risk_info['detail']}
-        </div>
-        <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:11px 16px;
-                    font-size:0.85rem; color:{risk_info['color']}; font-weight:600;">
-            What to do: &nbsp;{risk_info['action']}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Export buttons ────────────────────────────────────────────────────
-    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 4])
-    with btn_col1:
-        # PDF Export button — find project root inline (works in both modes)
-        def _find_root():
-            check = os.getcwd()
-            for _ in range(5):
-                if os.path.exists(os.path.join(check, "main.py")):
-                    return check
-                check = os.path.dirname(check)
-            return os.getcwd()
-
-        export_pdf_path = selected.replace(".json", ".pdf")
-        if st.button("📄  Export PDF"):
-            try:
-                import importlib.util, sys as _sys
-                pdf_script = os.path.join(_find_root(), "export_pdf.py")
-                if os.path.exists(pdf_script):
-                    spec = importlib.util.spec_from_file_location("export_pdf", pdf_script)
-                    mod  = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(mod)
-                    mod.build_pdf(selected, export_pdf_path)
-                    st.success(f"PDF saved to: {export_pdf_path}")
-                else:
-                    st.error("export_pdf.py not found in project root.")
-            except Exception as e:
-                st.error(f"PDF export failed: {e}")
-
-        # Show download button if PDF exists
-        if os.path.exists(export_pdf_path):
-            with open(export_pdf_path, "rb") as pdf_f:
-                st.download_button(
-                    label="⬇  Download PDF",
-                    data=pdf_f.read(),
-                    file_name=f"sentinelai_report_{report_mtime.strftime('%Y%m%d_%H%M')}.pdf",
-                    mime="application/pdf"
-                )
-    with btn_col2:
-        # JSON download
-        with open(selected, "rb") as jf:
-            st.download_button(
-                label="⬇  Download JSON",
-                data=jf.read(),
-                file_name=f"sentinelai_report_{report_mtime.strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json"
-            )
-
-    # Patched files download
-    patched_paths = summary.get("patched_file_paths", [])
-    if patched_paths:
-        st.markdown("""
-        <div style="background:rgba(0,100,200,0.08); border:1px solid #1a3a5a;
-                    border-radius:8px; padding:14px 16px; margin-top:10px;">
-            <div style="font-size:0.8rem; color:#3a7aaa; font-weight:600; margin-bottom:8px;">
-                ⚡ Auto-Fixed Files Available
-            </div>
-            <div style="font-size:0.78rem; color:#5a8aaa; margin-bottom:10px;">
-                Agent I has generated patched versions of your files with common vulnerabilities fixed automatically.
-                Review before using in production.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        for pp in patched_paths:
-            if os.path.exists(pp):
-                fname = os.path.basename(pp)
-                with open(pp, "rb") as pf:
-                    st.download_button(
-                        label=f"⬇  Download {fname}",
-                        data=pf.read(),
-                        file_name=fname,
-                        mime="text/plain",
-                        key=f"dl_{fname}"
-                    )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Issue summary row
-    cols = st.columns(4)
-    for col, (sev, count, icon, lbl) in zip(cols, [
-        ("CRITICAL", n_critical, "🚨", "Must Fix Now"),
-        ("HIGH",     n_high,     "🔴", "Fix Before Launch"),
-        ("MEDIUM",   n_medium,   "🟡", "Fix Soon"),
-        ("LOW",      n_low,      "🟢", "Fix When Possible"),
-    ]):
-        si = severity_info(sev)
-        col.markdown(f"""
-        <div style="background:{si['bg']}; border:1px solid {si['color']}33;
-                    border-radius:10px; padding:18px 12px; text-align:center; margin-bottom:8px;">
-            <div style="font-size:1.6rem;">{icon}</div>
-            <div style="font-size:2rem; font-weight:800; color:{si['color']}; line-height:1.1;">{count}</div>
-            <div style="font-size:0.8rem; font-weight:600; color:{si['color']}; margin:4px 0 2px 0;">{lbl}</div>
-            <div style="font-size:0.68rem; color:#4a6a7a;">{si['meaning']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Filter bar
+    # Page header
     st.markdown("""
-    <div style="font-size:1.05rem; font-weight:700; color:#8ab4cc;
-                border-bottom:1px solid #1e2d40; padding-bottom:8px; margin-bottom:16px;">
-        Security Issues Found
+    <div style="margin-bottom:32px;">
+        <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;
+                    color:#00c8ff;letter-spacing:-0.5px;line-height:1.1;">
+            Run Security Scan
+        </div>
+        <div style="font-size:0.85rem;color:#3a5a72;margin-top:6px;">
+            Upload your Python project or point to a local path · All 9 agents run automatically
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
-    with col_f1:
-        sev_opts = ["🚨 Critical", "🔴 High", "🟡 Medium", "🟢 Low"]
-        sev_sel  = st.multiselect("Show:", sev_opts, default=sev_opts)
-        sev_map  = {"🚨 Critical": "CRITICAL", "🔴 High": "HIGH", "🟡 Medium": "MEDIUM", "🟢 Low": "LOW"}
-        sev_codes= [sev_map[s] for s in sev_sel if s in sev_map]
-    with col_f2:
-        search = st.text_input("Search:", placeholder="e.g. password, SQL...")
-    with col_f3:
-        sort_by = st.selectbox("Sort by:", ["Severity (worst first)", "Line number"])
-
-    filtered = [f for f in findings
-        if f.get("severity") in sev_codes
-        and (not search or search.lower() in
-             (f.get("title","") + f.get("description","") + f.get("code_snippet","")).lower())]
-
-    sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    filtered.sort(key=lambda x: x.get("lineno") or 0 if sort_by == "Line number"
-                  else sev_order.get(x.get("severity","LOW"), 4))
-
-    st.markdown(f'<div style="font-size:0.8rem; color:#4a6a7a; margin-bottom:12px;">Showing {len(filtered)} of {total} issues</div>',
-                unsafe_allow_html=True)
-
-    # Friendly finding cards as expandable sections
-    for i, f in enumerate(filtered):
-        sev     = f.get("severity", "LOW")
-        si      = severity_info(sev)
-        title   = f.get("title", "Unknown Issue")
-        rec     = f.get("recommendation", "")
-        snippet = f.get("code_snippet", "")
-        lineno  = f.get("lineno")
-        filepath= f.get("filepath", "")
-        cwe     = f.get("cwe_id", "")
-        plain   = what_it_means(title)
-        filename= filepath.replace("\\", "/").split("/")[-1] if filepath else ""
-
-        with st.expander(f"{si['icon']}  {title}  —  {si['label']}", expanded=(i < 3 and sev == "CRITICAL")):
-            st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:14px 16px; margin-bottom:12px;">
-                <div style="font-size:0.72rem; color:#4a7a9a; font-weight:600; letter-spacing:1px; margin-bottom:6px;">
-                    WHAT THIS MEANS
+    # ── Agent preview cards ─────────────────────────────────────────────
+    agent_preview = [
+        ("A", "Pattern Detector",  "#00c8ff", "Regex + AST — secrets, eval(), SQL patterns"),
+        ("B", "Auth Logic LLM",    "#a78bfa", "phi3 semantic — login bypass, access control"),
+        ("C", "Data Flow",         "#34d399", "Traces user input to dangerous sinks"),
+        ("E", "Dependencies",      "#fb923c", "CVE lookup via OSV.dev API"),
+        ("F", "Git History",       "#f472b6", "Secrets in deleted commits"),
+        ("G", "CORS & Headers",    "#60a5fa", "Security header configuration"),
+        ("H", "Cryptography",      "#fbbf24", "Weak hashes, ciphers, RNG"),
+        ("I", "Auto-Fix Engine",   "#4ade80", "phi3 generates corrected code"),
+    ]
+    cols = st.columns(4)
+    for i, (letter, name, color, desc) in enumerate(agent_preview):
+        cols[i % 4].markdown(f"""
+        <div style="background:#0f1822;border:1px solid #1a2535;border-radius:10px;
+                    padding:14px 16px;margin-bottom:10px;transition:all 0.2s;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="width:24px;height:24px;border-radius:6px;background:{color}18;
+                            border:1px solid {color}40;display:flex;align-items:center;justify-content:center;">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;
+                                 color:{color};font-weight:700;">{letter}</span>
                 </div>
-                <div style="font-size:0.95rem; color:#c9d4e0; line-height:1.6;">{plain}</div>
+                <span style="font-size:0.78rem;font-weight:600;color:#8aacbe;">{name}</span>
             </div>
-            """, unsafe_allow_html=True)
-
-            owasp_id   = f.get("owasp_id", "")
-            owasp_name = f.get("owasp_name", "")
-            owasp_url  = f.get("owasp_url", "https://owasp.org/Top10/")
-
-            loc_parts = []
-            if filename: loc_parts.append(f"<b>File:</b> {filename}")
-            if lineno:   loc_parts.append(f"<b>Line:</b> {lineno}")
-            if cwe:      loc_parts.append(f"<b>Reference:</b> {cwe}")
-            if loc_parts:
-                st.markdown('<div style="font-size:0.78rem; color:#4a7a9a; margin-bottom:6px;">' +
-                            " &nbsp;·&nbsp; ".join(loc_parts) + "</div>", unsafe_allow_html=True)
-
-            if owasp_id and owasp_name:
-                owasp_badge = f'<a href="{owasp_url}" target="_blank" style="text-decoration:none;">'  \
-                    f'<div style="display:inline-block; margin-bottom:10px; background:rgba(0,160,100,0.10); border:1px solid #1a5a3a; border-radius:5px; padding:3px 10px;">' \
-                    f'<span style="font-size:0.72rem; color:#3aaa6a; font-weight:700; letter-spacing:0.5px;">🛡️ {owasp_id} — {owasp_name}</span></div></a>'
-                st.markdown(owasp_badge, unsafe_allow_html=True)
-
-            if snippet:
-                st.markdown(f"""
-                <div style="margin-bottom:10px;">
-                    <div style="font-size:0.72rem; color:#3d6b8a; margin-bottom:4px;">The problematic code:</div>
-                    <div style="font-family:'Share Tech Mono',monospace; font-size:0.78rem;
-                                background:#050810; border:1px solid #1a2535; border-radius:6px;
-                                padding:10px 14px; color:#e07a5f; white-space:pre-wrap; word-break:break-all;">
-{_html.escape(snippet[:300])}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Show auto-fix if available
-            fix = f.get("fix_suggestion")
-            if fix and fix.get("after"):
-                fix_type = fix.get("type", "rule")
-                fix_label = "Auto-Fix (Rule-Based)" if fix_type == "rule" else "Auto-Fix (AI Generated)"
-                fix_icon  = "⚡" if fix_type == "rule" else "🤖"
-                st.markdown(f"""
-                <div style="margin-bottom:10px; background:rgba(0,100,200,0.06);
-                            border:1px solid #1a3a5a; border-radius:8px; padding:12px 16px;">
-                    <div style="font-size:0.72rem; color:#3a7aaa; font-weight:600;
-                                letter-spacing:1px; margin-bottom:8px;">{fix_icon} {fix_label}</div>
-                    <div style="font-size:0.7rem; color:#3d6b8a; margin-bottom:4px;">Fixed code:</div>
-                    <div style="font-family:'Share Tech Mono',monospace; font-size:0.78rem;
-                                background:#050810; border:1px solid #1a3535; border-radius:6px;
-                                padding:10px 14px; color:#7aff8a; white-space:pre-wrap; word-break:break-all;">
-{_html.escape(str(fix.get("after",""))[:400])}</div>
-                    {"<div style=\"font-size:0.8rem; color:#5a9aaa; margin-top:8px;\">" + _html.escape(str(fix.get("explanation",""))[:300]) + "</div>" if fix.get("explanation") else ""}
-                </div>
-                """, unsafe_allow_html=True)
-            elif rec:
-                st.markdown(f"""
-                <div style="background:rgba(0,180,100,0.06); border-left:3px solid #2a7a4a;
-                            border-radius:0 8px 8px 0; padding:12px 16px;">
-                    <div style="font-size:0.72rem; color:#2a8a4a; font-weight:600;
-                                letter-spacing:1px; margin-bottom:6px;">HOW TO FIX IT</div>
-                    <div style="font-size:0.85rem; color:#7abf8a; line-height:1.6;">{rec}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# MODE: RUN NEW SCAN
-# ══════════════════════════════════════════════════════════════════════════════
-else:
-    import zipfile
-    import tempfile
-    import shutil
-
-    def find_project_root() -> str:
-        check = os.getcwd()
-        for _ in range(5):
-            if os.path.exists(os.path.join(check, "main.py")):
-                return check
-            check = os.path.dirname(check)
-        for c in [os.getcwd(), os.path.dirname(os.path.abspath(sys.argv[0]))]:
-            if os.path.exists(os.path.join(c, "main.py")):
-                return c
-        return os.getcwd()
-
-    PROJECT_ROOT = find_project_root()
-    MAIN_PY = os.path.join(PROJECT_ROOT, "main.py")
-
-    st.markdown('<div class="section-header">Run a New Scan</div>', unsafe_allow_html=True)
-
-    tab1, tab2 = st.tabs(["  Upload ZIP / .py File  ", "  Local Path  "])
-
-    scan_target = None
-    cleanup_dir = None
-
-    with tab1:
-        st.markdown("""
-        <div style="font-family:'Share Tech Mono',monospace; font-size:0.65rem;
-                    color:#3d6b8a; letter-spacing:1px; margin:12px 0 16px 0; line-height:1.8;">
-            Upload a ZIP of your Python project or a single .py file.<br>
-            The file will be extracted and scanned automatically.
+            <div style="font-size:0.68rem;color:#2a4a5e;line-height:1.5;">{desc}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        uploaded_file = st.file_uploader(
-            "DROP YOUR FILE HERE",
-            type=["zip", "py"],
-            label_visibility="collapsed",
-            help="Upload a .zip of your project folder or a single .py file"
-        )
+    st.markdown("<div style='margin:8px 0 24px 0;'>", unsafe_allow_html=True)
 
-        if uploaded_file is not None:
-            file_size_kb = round(uploaded_file.size / 1024, 1)
+    # ── Scan input ──────────────────────────────────────────────────────
+    col_left, col_right = st.columns([3, 2], gap="large")
+
+    with col_left:
+        tab1, tab2 = st.tabs(["📁  Upload File / ZIP", "📂  Local Path"])
+
+        with tab1:
+            uploaded = st.file_uploader(
+                "Drop your Python file or ZIP archive here",
+                type=["py", "zip"],
+                label_visibility="collapsed"
+            )
+            if uploaded:
+                size_kb = round(uploaded.size / 1024, 1)
+                st.markdown(f"""
+                <div style="background:rgba(0,214,143,0.06);border:1px solid rgba(0,214,143,0.2);
+                            border-radius:8px;padding:10px 14px;margin-top:8px;
+                            font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#00d68f;">
+                    ✓ &nbsp;{uploaded.name} &nbsp;·&nbsp; {size_kb} KB received
+                </div>
+                """, unsafe_allow_html=True)
+                tmp = tempfile.mkdtemp(prefix="sentinel_")
+                cleanup_dir = tmp
+                if uploaded.name.endswith(".zip"):
+                    zpath = os.path.join(tmp, uploaded.name)
+                    with open(zpath, "wb") as zf:
+                        zf.write(uploaded.getbuffer())
+                    xdir = os.path.join(tmp, "extracted")
+                    os.makedirs(xdir, exist_ok=True)
+                    try:
+                        with _zip.ZipFile(zpath) as z:
+                            z.extractall(xdir)
+                        items = os.listdir(xdir)
+                        if len(items) == 1 and os.path.isdir(os.path.join(xdir, items[0])):
+                            xdir = os.path.join(xdir, items[0])
+                        scan_target = xdir
+                        py_count = len(list(Path(xdir).rglob("*.py")))
+                        st.markdown(f"""
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;
+                                    color:#2a8a5a;margin-top:6px;">
+                            ✓ Extracted · {py_count} Python file(s) found
+                        </div>""", unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"ZIP extraction failed: {e}")
+                elif uploaded.name.endswith(".py"):
+                    pypath = os.path.join(tmp, uploaded.name)
+                    with open(pypath, "wb") as pf:
+                        pf.write(uploaded.getbuffer())
+                    scan_target = pypath
+
+        with tab2:
             st.markdown(f"""
-            <div style="font-family:'Share Tech Mono',monospace; font-size:0.65rem;
-                        color:#2a6a3a; padding:10px 14px; background:rgba(0,100,50,0.1);
-                        border:1px solid #1a4a2a; border-radius:6px; margin-bottom:12px;">
-                FILE RECEIVED: {uploaded_file.name} &nbsp;|&nbsp; {file_size_kb} KB
-            </div>
-            """, unsafe_allow_html=True)
-
-            tmp_dir = tempfile.mkdtemp(prefix="sentinelai_")
-            cleanup_dir = tmp_dir
-
-            if uploaded_file.name.endswith(".zip"):
-                zip_path = os.path.join(tmp_dir, uploaded_file.name)
-                with open(zip_path, "wb") as zf:
-                    zf.write(uploaded_file.getbuffer())
-                extract_dir = os.path.join(tmp_dir, "extracted")
-                os.makedirs(extract_dir, exist_ok=True)
-                try:
-                    with zipfile.ZipFile(zip_path, "r") as z:
-                        z.extractall(extract_dir)
-                    items = os.listdir(extract_dir)
-                    if len(items) == 1:
-                        inner = os.path.join(extract_dir, items[0])
-                        if os.path.isdir(inner):
-                            extract_dir = inner
-                    scan_target = extract_dir
-                    py_count = len(list(Path(extract_dir).rglob("*.py")))
-                    st.markdown(f"""
-                    <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem; color:#2a8a4a;">
-                        [OK] ZIP extracted - {py_count} Python file(s) found
-                    </div>
-                    """, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Failed to extract ZIP: {e}")
-
-            elif uploaded_file.name.endswith(".py"):
-                py_path = os.path.join(tmp_dir, uploaded_file.name)
-                with open(py_path, "wb") as pf:
-                    pf.write(uploaded_file.getbuffer())
-                scan_target = py_path
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;
+                        color:#1e4060;padding:8px 0 12px 0;">
+                Project root: {PROJECT_ROOT}
+            </div>""", unsafe_allow_html=True)
+            local_path = st.text_input(
+                "Path", value="",
+                placeholder="C:/path/to/your/project/",
+                label_visibility="collapsed"
+            )
+            if local_path and os.path.exists(local_path):
+                n = len(list(Path(local_path).rglob("*.py"))) if os.path.isdir(local_path) else 1
+                st.markdown(f"""
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;
+                            color:#2a8a5a;margin-top:4px;">✓ Path found · {n} Python file(s)</div>
+                """, unsafe_allow_html=True)
+                scan_target = local_path
+            elif local_path:
                 st.markdown("""
-                <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem; color:#2a8a4a;">
-                    [OK] Python file ready to scan
-                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;
+                            color:#8a2a2a;margin-top:4px;">✗ Path not found</div>
                 """, unsafe_allow_html=True)
 
-    with tab2:
-        st.markdown(f"""
-        <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem;
-                    color:#2a5a3a; letter-spacing:1px; margin-bottom:12px; padding:8px 12px;
-                    background:rgba(0,80,40,0.1); border:1px solid #1a4a2a; border-radius:6px;">
-            PROJECT ROOT: {PROJECT_ROOT} &nbsp;|&nbsp;
-            MAIN.PY: {"[OK]" if os.path.exists(MAIN_PY) else "[NOT FOUND]"}
-        </div>
+    with col_right:
+        st.markdown("""
+        <div style="background:#0f1822;border:1px solid #1a2535;border-radius:12px;
+                    padding:22px 20px;height:100%;">
+            <div style="font-size:0.78rem;font-weight:600;color:#4a7a9a;
+                        text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">
+                Scan Options
+            </div>
         """, unsafe_allow_html=True)
 
-        local_path = st.text_input(
-            "TARGET PATH",
-            value=os.path.join(PROJECT_ROOT, "sample_app"),
-            placeholder="C:/path/to/your/project/"
-        )
-        if local_path and os.path.exists(local_path):
-            py_count = len(list(Path(local_path).rglob("*.py"))) if os.path.isdir(local_path) else 1
-            st.markdown(f"""
-            <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem; color:#2a8a4a;">
-                [OK] Path found - {py_count} Python file(s) detected
-            </div>
-            """, unsafe_allow_html=True)
-            scan_target = local_path
-        elif local_path:
-            st.markdown("""
-            <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem; color:#8a2a2a;">
-                [X] Path not found - check the path is correct
-            </div>
-            """, unsafe_allow_html=True)
+        use_llm = st.checkbox("⚡ Enable LLM Analysis", value=True,
+            help="Uses Ollama/phi3 on GPU for Agent B (auth logic) and Agent I (auto-fix). Requires Ollama running.")
+        use_autofix = st.checkbox("🔧 Generate Auto-Fixes", value=True,
+            help="Agent I will generate corrected code for every finding and save a patched file.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        use_llm = st.checkbox("Enable LLM Analysis (Agent B)", value=False)
-    with c2:
         output_dir = os.path.join(PROJECT_ROOT, "output")
         st.markdown(f"""
-        <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem;
-                    color:#3d6b8a; margin-top:8px;">
-            OUTPUT -> {output_dir}
-        </div>
-        """, unsafe_allow_html=True)
+        <div style="margin-top:16px;font-family:'JetBrains Mono',monospace;
+                    font-size:0.62rem;color:#1e3a52;line-height:2;">
+            Output → {output_dir}
+        </div>""", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div style='margin-top:24px;'>", unsafe_allow_html=True)
 
     launch_disabled = scan_target is None
-    if st.button("* LAUNCH SCAN", disabled=launch_disabled):
+    if launch_disabled:
+        st.markdown("""
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;
+                    color:#2a4a5e;padding:4px 0 16px 0;">
+            ↑ Upload a file or enter a local path to enable scanning
+        </div>""", unsafe_allow_html=True)
+
+
+    if st.button("🚀  LAUNCH SCAN", disabled=launch_disabled):
         if not os.path.exists(MAIN_PY):
             st.error(f"Cannot find main.py at: {MAIN_PY}")
         else:
@@ -1000,88 +453,582 @@ else:
             if not use_llm:
                 cmd.append("--no-llm")
 
+            AGENTS = [
+                ("A", "Pattern Detector",  "Regex + AST — secrets, eval(), SQL patterns"),
+                ("B", "Auth Logic · LLM",  "phi3 semantic analysis of auth functions"),
+                ("C", "Data Flow",         "Tracing user input to dangerous sinks"),
+                ("E", "Dependencies",      "CVE lookup via OSV.dev API"),
+                ("F", "Git History",       "Scanning commits for leaked secrets"),
+                ("G", "CORS & Headers",    "Auditing security header configuration"),
+                ("H", "Cryptography",      "Detecting weak hashes, ciphers, RNG"),
+                ("D", "Risk Scorer",       "Calculating weighted risk score"),
+                ("I", "Auto-Fix · LLM",    "Generating corrected code for findings"),
+            ]
+
             st.markdown("""
-            <div style="font-family:'Share Tech Mono',monospace; font-size:0.7rem;
-                        color:#3d6b8a; letter-spacing:2px; margin:16px 0 8px 0;">
-                SCAN OUTPUT
-            </div>
-            """, unsafe_allow_html=True)
+            <style>
+            @keyframes pulse  {0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
+            @keyframes sweep  {0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+            @keyframes fadein {from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+            </style>""", unsafe_allow_html=True)
 
-            output_placeholder = st.empty()
-            full_output = ""
+            col_left, col_right = st.columns([1, 1], gap="large")
+            with col_left:
+                st.markdown('<div style="font-family:JetBrains Mono,monospace;font-size:0.62rem;color:#2a6a8a;letter-spacing:2px;text-transform:uppercase;padding-bottom:10px;">⬡ Agent Pipeline</div>', unsafe_allow_html=True)
+                tracker_ph = st.empty()
+            with col_right:
+                st.markdown('<div style="font-family:JetBrains Mono,monospace;font-size:0.62rem;color:#2a6a8a;letter-spacing:2px;text-transform:uppercase;padding-bottom:10px;">▶ Live Output</div>', unsafe_allow_html=True)
+                term_ph = st.empty()
 
-            with st.spinner("Scanning..."):
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    encoding="utf-8",
-                    errors="replace",
-                    cwd=PROJECT_ROOT
-                )
-                for line in process.stdout:
-                    full_output += line
-                    output_placeholder.markdown(
-                        f'<div class="terminal">{full_output}</div>',
-                        unsafe_allow_html=True
+            agent_states = {a[0]: "waiting" for a in AGENTS}
+            agent_counts = {a[0]: None for a in AGENTS}
+            full_out = ""
+            current_phase = None
+
+            def render_tracker(states, counts):
+                rows = ""
+                for letter, name, desc in AGENTS:
+                    st8 = states[letter]
+                    cnt = counts[letter]
+                    if st8 == "done":
+                        dot   = "#00d68f"
+                        anim  = ""
+                        bg    = "background:rgba(0,214,143,0.04);border-color:rgba(0,214,143,0.15);"
+                        nc    = "#00d68f"
+                        right = ('<span style="font-size:0.72rem;font-weight:700;color:#00d68f;">'
+                                 + (str(cnt)+" found" if cnt is not None else "✓") + "</span>")
+                        bar   = '<div style="height:2px;background:linear-gradient(90deg,#00d68f50,#00d68f20);border-radius:2px;margin-top:4px;"></div>'
+                    elif st8 == "running":
+                        dot   = "#00c8ff"
+                        anim  = "animation:pulse 0.9s ease infinite;"
+                        bg    = "background:rgba(0,200,255,0.06);border-color:rgba(0,200,255,0.25);"
+                        nc    = "#00c8ff"
+                        right = '<span style="font-size:0.65rem;color:#1a6a8a;">scanning...</span>'
+                        bar   = ('<div style="height:2px;background:#0a1525;border-radius:2px;margin-top:4px;overflow:hidden;">'
+                                 '<div style="height:100%;width:40%;background:linear-gradient(90deg,transparent,#00c8ff,transparent);'
+                                 'animation:sweep 1.4s ease infinite;"></div></div>')
+                    else:
+                        dot   = "#1a2d3a"
+                        anim  = ""
+                        bg    = "opacity:0.3;"
+                        nc    = "#2a4a5e"
+                        right = ""
+                        bar   = ""
+
+                    rows += (
+                        f'<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;'
+                        f'border-radius:8px;border:1px solid transparent;margin-bottom:5px;{bg}">'
+                        f'<div style="width:7px;height:7px;border-radius:50%;background:{dot};'
+                        f'flex-shrink:0;margin-top:5px;{anim}"></div>'
+                        f'<div style="flex:1;min-width:0;">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                        f'<span style="font-size:0.78rem;font-weight:600;color:{nc};">Agent {letter} · {name}</span>'
+                        f'{right}</div>'
+                        f'<div style="font-size:0.62rem;color:#1e3a4a;margin-top:1px;">{desc}</div>'
+                        f'{bar}</div></div>'
                     )
-                process.wait()
+                tracker_ph.markdown(rows, unsafe_allow_html=True)
+
+            render_tracker(agent_states, agent_counts)
+
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, encoding="utf-8", errors="replace",
+                cwd=PROJECT_ROOT
+            )
+
+            import re as _re
+            for line in proc.stdout:
+                full_out += line
+                stripped  = line.strip()
+
+                for letter, name, _ in AGENTS:
+                    if f"Agent {letter}" in stripped and "Running" in stripped:
+                        if current_phase and current_phase != letter:
+                            if agent_states[current_phase] == "running":
+                                agent_states[current_phase] = "done"
+                        current_phase = letter
+                        agent_states[letter] = "running"
+
+                m = _re.search(r"Agent ([A-Z]) found (\d+)", stripped)
+                if m:
+                    ltr, cnt = m.group(1), int(m.group(2))
+                    agent_states[ltr] = "done"
+                    agent_counts[ltr] = cnt
+
+                if "Agent I generated" in stripped:
+                    agent_states["I"] = "done"
+                    m2 = _re.search(r"(\d+) fix", stripped)
+                    if m2: agent_counts["I"] = int(m2.group(1))
+
+                if "OWASP mapping" in stripped:
+                    m3 = _re.search(r"(\d+)/(\d+)", stripped)
+                    if m3: agent_counts["D"] = int(m3.group(1))
+
+                render_tracker(agent_states, agent_counts)
+
+                lines_list = full_out.strip().split("\n")
+                recent     = "\n".join(lines_list[-28:])
+                term_ph.markdown(
+                    '<div style="background:#040810;border:1px solid #1a2535;border-radius:8px;'
+                    'padding:14px 16px;font-family:JetBrains Mono,monospace;font-size:0.68rem;'
+                    'color:#3aff8a;line-height:1.75;height:460px;overflow:hidden;white-space:pre-wrap;">'
+                    + _html.escape(recent) + '</div>',
+                    unsafe_allow_html=True
+                )
+
+            proc.wait()
+            for letter in agent_states:
+                if agent_states[letter] == "running":
+                    agent_states[letter] = "done"
+            render_tracker(agent_states, agent_counts)
+
+            # Mark any still-running as done
+            for letter in agent_states:
+                if agent_states[letter] == "running":
+                    agent_states[letter] = "done"
+            render_tracker(agent_states, agent_counts)
 
             if cleanup_dir and os.path.exists(cleanup_dir):
-                try:
-                    shutil.rmtree(cleanup_dir)
-                except Exception:
-                    pass
+                try: shutil.rmtree(cleanup_dir)
+                except: pass
 
-            if process.returncode == 0:
-                # Save a timestamped copy so history is preserved
-                import datetime, shutil as _shutil
+            if proc.returncode == 0:
+                # Archive report
                 ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                report_path = os.path.join(output_dir, "sentinel_report.json")
-                if os.path.exists(report_path):
-                    archive_path = os.path.join(output_dir, f"sentinel_report_{ts}.json")
-                    _shutil.copy2(report_path, archive_path)
+                rpath = os.path.join(output_dir, "sentinel_report.json")
+                if os.path.exists(rpath):
+                    shutil.copy2(rpath, os.path.join(output_dir, f"sentinel_report_{ts}.json"))
 
-                st.success(f"[OK] Scan complete! Report saved. Switch to View Report mode.")
-                if os.path.exists(report_path):
-                    with open(report_path) as rf:
-                        report_data = json.load(rf)
-                    summary = report_data.get("summary", {})
-                    risk = summary.get("risk_level", "")
-                    score = summary.get("risk_score", 0)
-                    total_f = summary.get("total_findings", 0)
-                    color = get_risk_color(risk)
+                # Results summary card
+                if os.path.exists(rpath):
+                    rd = load_report(rpath)
+                    sm = rd.get("summary", {})
+                    score = sm.get("risk_score", 0)
+                    rl    = sm.get("risk_level", "")
+                    total = sm.get("total_findings", 0)
+                    rc    = risk_color(rl)
+                    sev_b = sm.get("severity_breakdown", {})
+
                     st.markdown(f"""
-                    <div class="risk-card" style="margin-top:20px;">
-                        <div class="risk-label">SCAN COMPLETE</div>
-                        <div class="risk-score-num" style="color:{color}; font-size:3rem;">{score}</div>
-                        <div class="risk-level-text" style="color:{color};">{risk.split(' - ')[0]}</div>
-                        <div style="font-family:'Share Tech Mono',monospace; font-size:0.65rem;
-                                    color:#3d6b8a; margin-top:8px;">
-                            {total_f} findings detected
+                    <div style="background:#0f1822;border:1px solid {rc}33;border-radius:12px;
+                                padding:24px;margin-top:20px;">
+                        <div style="display:flex;align-items:flex-start;gap:24px;">
+                            <div style="text-align:center;flex-shrink:0;">
+                                <div style="font-family:'Syne',sans-serif;font-size:3.5rem;
+                                            font-weight:800;color:{rc};line-height:1;">{score}</div>
+                                <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;
+                                            color:{rc};letter-spacing:1px;opacity:0.7;">RISK SCORE</div>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-size:1.1rem;font-weight:700;color:{rc};margin-bottom:6px;">
+                                    {rl.split(" - ")[0]}
+                                </div>
+                                <div style="font-size:0.8rem;color:#4a6a7a;margin-bottom:14px;">
+                                    {total} findings detected
+                                </div>
+                                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                                    {''.join(f'<div style="background:{SEV_CFG[s]["bg"]};border:1px solid {SEV_CFG[s]["border"]};border-radius:6px;padding:6px 12px;"><span style="font-size:1rem;font-weight:700;color:{SEV_CFG[s]["color"]};">{sev_b.get(s,0)}</span><span style="font-size:0.65rem;color:#3a5a72;display:block;">{SEV_CFG[s]["label"]}</span></div>' for s in ["CRITICAL","HIGH","MEDIUM","LOW"])}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px;padding:12px 16px;background:rgba(0,200,255,0.05);
+                                    border-radius:8px;font-size:0.8rem;color:#4a8aaa;">
+                            ✓ Scan complete · Switch to <b>View Results</b> in the sidebar to explore findings
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
-                st.error("Scan encountered an error. Check the output above.")
+                st.error("Scan encountered an error. Review the output above.")
 
-    if launch_disabled:
+
+# ══════════════════════════════════════════════════════════════════════════
+#  MODE: VIEW RESULTS
+# ══════════════════════════════════════════════════════════════════════════
+else:
+    import glob
+
+    # Find reports
+    report_files = sorted(
+        list(Path(PROJECT_ROOT).rglob("sentinel_report*.json")),
+        key=lambda p: p.stat().st_mtime, reverse=True
+    )
+    # Exclude archived timestamped ones from the picker (keep only latest + archives)
+    main_report = [p for p in report_files if p.name == "sentinel_report.json"]
+    archived    = [p for p in report_files if p.name != "sentinel_report.json"]
+    all_reports = main_report + archived
+
+    if not all_reports:
         st.markdown("""
-        <div style="font-family:'Share Tech Mono',monospace; font-size:0.62rem;
-                    color:#2a4a6a; margin-top:8px; letter-spacing:1px;">
-            [!] Upload a file or enter a local path above to enable scanning
+        <div style="text-align:center;padding:100px 40px;">
+            <div style="font-size:3rem;margin-bottom:20px;opacity:0.3;">🛡️</div>
+            <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;
+                        color:#2a4a5e;margin-bottom:10px;">No scans yet</div>
+            <div style="font-size:0.85rem;color:#1e3a4a;">
+                Go to <b>New Scan</b> in the sidebar, upload a Python file and click Launch Scan.
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        st.stop()
 
-    st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown("""
-    <div style="font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:#1e3a52; line-height:2;">
-        USAGE NOTES<br><br>
-        · Upload Tab: drag and drop a .zip of your project or a single .py file<br>
-        · Local Tab: type the full path to any Python file or folder<br>
-        · LLM Analysis requires ANTHROPIC_API_KEY environment variable<br>
-        · Results auto-save and appear in View Report mode
-    </div>
-    """, unsafe_allow_html=True)
+    def report_label(p):
+        mt = datetime.datetime.fromtimestamp(p.stat().st_mtime)
+        try:
+            with open(str(p), encoding="utf-8") as _rf:
+                _rd = json.load(_rf)
+            _sm   = _rd.get("summary", {})
+            _tgt  = _sm.get("target_path", "")
+            parts = _tgt.replace("\\", "/").replace("\\\\", "/").rstrip("/").split("/")
+            tname = parts[-1] if parts else ""
+            if tname.startswith("sentinel_") or tname in ("extracted", ""):
+                tname = parts[-2] if len(parts) > 1 else tname
+            _sc   = _sm.get("risk_score", 0)
+            _n    = len(_sm.get("files_scanned", []))
+            extra = f"  |  {tname}  |  {_n} file(s)  |  score {_sc}" if tname else ""
+        except Exception:
+            extra = ""
+        return f"{mt.strftime('%d %b %Y  %H:%M')}{extra}"
+
+    report_map = {report_label(p): str(p) for p in all_reports}
+
+    if len(all_reports) > 1:
+        st.markdown('<div style="font-size:0.7rem;font-weight:600;color:#2a5a72;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Select Scan Report</div>', unsafe_allow_html=True)
+        selected = report_map[st.selectbox("Select report", list(report_map.keys()), label_visibility="collapsed")]
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+    else:
+        selected = str(all_reports[0])
+
+    data     = load_report(selected)
+    summary  = data.get("summary", {})
+    findings = data.get("findings", [])
+
+    score    = summary.get("risk_score", 0)
+    rl       = summary.get("risk_level", "UNKNOWN")
+    total    = summary.get("total_findings", 0)
+    sev_b    = summary.get("severity_breakdown", {})
+    dur      = summary.get("scan_duration_seconds", 0)
+    target   = summary.get("target_path", "")
+    files    = summary.get("files_scanned", [])
+    rc       = risk_color(rl)
+    rmt      = datetime.datetime.fromtimestamp(os.path.getmtime(selected))
+    fname    = (files[0].replace("\\","/").split("/")[-1] if files
+                else target.replace("\\","/").split("/")[-1])
+
+    n_c = sev_b.get("CRITICAL", 0)
+    n_h = sev_b.get("HIGH", 0)
+    n_m = sev_b.get("MEDIUM", 0)
+    n_l = sev_b.get("LOW", 0)
+
+    # ── OWASP breakdown from findings ──────────────────────────────────
+    owasp_counts = Counter(
+        f"{f.get('owasp_id','')} — {f.get('owasp_name','')}"
+        for f in findings if f.get("owasp_id")
+    )
+    owasp_tagged = sum(1 for f in findings if f.get("owasp_id"))
+
+    # ── TOP SUMMARY BAR — native Streamlit (avoids HTML render issues) ────
+    rl_short = rl.split(" - ")[0]
+    st.markdown(f"""
+    <div style="background:#0b1520;border:1px solid {rc}30;border-radius:12px;
+                padding:6px 0 4px 0;margin-bottom:16px;
+                border-top:2px solid {rc};">
+    </div>""", unsafe_allow_html=True)
+
+    sb1, sb2, sb3, sb4, sb5, sb6 = st.columns([1.2, 0.05, 2.5, 0.05, 1, 0.05])
+    with sb1:
+        st.markdown(f"""
+        <div style="text-align:center;padding:16px 8px;">
+            <div style="font-size:3.2rem;font-weight:800;color:{rc};
+                        line-height:1;font-family:sans-serif;">{score}</div>
+            <div style="font-size:0.58rem;color:{rc};opacity:0.6;letter-spacing:2px;
+                        text-transform:uppercase;margin-top:4px;">RISK SCORE</div>
+        </div>""", unsafe_allow_html=True)
+    with sb2:
+        st.markdown(f'<div style="height:80px;background:#1a2535;width:1px;margin:auto;"></div>',
+                    unsafe_allow_html=True)
+    with sb3:
+        st.markdown(f"""
+        <div style="padding:16px 12px;">
+            <div style="font-size:1.15rem;font-weight:700;color:{rc};margin-bottom:6px;">{rl_short}</div>
+            <div style="font-size:0.75rem;color:#3a5a72;margin-bottom:12px;">
+                {fname} &nbsp;·&nbsp; {rmt.strftime("%d %b %Y at %H:%M")} &nbsp;·&nbsp; {dur}s
+            </div>
+        </div>""", unsafe_allow_html=True)
+        sev_cols = st.columns(4)
+        for col, s in zip(sev_cols, ["CRITICAL","HIGH","MEDIUM","LOW"]):
+            cfg = SEV_CFG[s]
+            col.markdown(f"""
+            <div style="background:{cfg['bg']};border:1px solid {cfg['border']};
+                        border-radius:7px;padding:8px 4px;text-align:center;">
+                <div style="font-size:1.4rem;font-weight:800;color:{cfg['color']};">
+                    {sev_b.get(s,0)}</div>
+                <div style="font-size:0.6rem;color:{cfg['color']};opacity:0.7;">
+                    {cfg['label']}</div>
+            </div>""", unsafe_allow_html=True)
+    with sb4:
+        st.markdown(f'<div style="height:80px;background:#1a2535;width:1px;margin:auto;"></div>',
+                    unsafe_allow_html=True)
+    with sb5:
+        st.markdown(f"""
+        <div style="padding:16px 8px;">
+            <div style="font-size:0.62rem;color:#2a4a5e;text-transform:uppercase;
+                        letter-spacing:1px;margin-bottom:8px;">OWASP Coverage</div>
+            <div style="font-size:2rem;font-weight:700;color:#00c8ff;line-height:1;">
+                {owasp_tagged}<span style="font-size:1rem;color:#2a5a7a;">/{total}</span>
+            </div>
+            <div style="font-size:0.62rem;color:#2a4a5e;margin-top:4px;">findings tagged</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
+
+    # ── ACTION BAR ─────────────────────────────────────────────────────
+    exp_col1, exp_col2, exp_col3, exp_col4 = st.columns([1,1,1,3])
+    with exp_col1:
+        export_path = selected.replace(".json", ".pdf")
+        if st.button("📄 Export PDF"):
+            try:
+                import importlib.util
+                pdf_script = os.path.join(PROJECT_ROOT, "export_pdf.py")
+                spec = importlib.util.spec_from_file_location("export_pdf", pdf_script)
+                mod  = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                mod.build_pdf(selected, export_path)
+                st.success("PDF ready!")
+            except Exception as e:
+                st.error(f"PDF failed: {e}")
+        if os.path.exists(export_path):
+            with open(export_path, "rb") as pf:
+                st.download_button("⬇ Download PDF", pf.read(),
+                    file_name=f"sentinelai_{rmt.strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf")
+    with exp_col2:
+        with open(selected, "rb") as jf:
+            st.download_button("⬇ Download JSON", jf.read(),
+                file_name=f"sentinelai_{rmt.strftime('%Y%m%d_%H%M')}.json",
+                mime="application/json")
+    with exp_col3:
+        patched = summary.get("patched_file_paths", [])
+        for pp in patched:
+            if os.path.exists(pp):
+                with open(pp, "rb") as pf:
+                    fname_p = os.path.basename(pp)
+                    st.download_button(f"⬇ {fname_p}", pf.read(),
+                        file_name=fname_p, mime="text/plain", key=f"dl_{fname_p}")
+
+    st.markdown("<div style='margin:20px 0;'>", unsafe_allow_html=True)
+
+    # ── TWO COLUMN LAYOUT: findings left, OWASP right ──────────────────
+    col_main, col_side = st.columns([3, 1], gap="large")
+
+    with col_side:
+        # OWASP panel
+        if owasp_counts:
+            owasp_colors = {
+                "A01": "#f87171", "A02": "#fb923c", "A03": "#f59e0b",
+                "A04": "#a3e635", "A05": "#34d399", "A06": "#22d3ee",
+                "A07": "#818cf8", "A08": "#e879f9", "A09": "#f472b6", "A10": "#94a3b8"
+            }
+            st.markdown("""
+            <div style="background:#0f1822;border:1px solid #1a2535;border-radius:12px;padding:18px;margin-bottom:16px;">
+                <div style="font-size:0.72rem;font-weight:600;color:#2a5a72;text-transform:uppercase;
+                            letter-spacing:1.5px;margin-bottom:14px;">🛡️ OWASP Top 10 Breakdown</div>
+            """, unsafe_allow_html=True)
+            total_owasp = sum(owasp_counts.values())
+            for cat, cnt in sorted(owasp_counts.items()):
+                code = cat.split(":")[0] if ":" in cat else cat[:3]
+                bar_w = int((cnt / max(total_owasp, 1)) * 100)
+                color = owasp_colors.get(code.replace("A0","A0").replace("A","A"), "#4a7a9a")
+                label = cat.split(" — ")[1] if " — " in cat else cat
+                oid   = cat.split(" — ")[0] if " — " in cat else cat
+                st.markdown(f"""
+                <div style="margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <div>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;
+                                         color:{color};font-weight:600;">{oid}</span>
+                            <span style="font-size:0.65rem;color:#2a4a5e;margin-left:4px;">{label}</span>
+                        </div>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;
+                                     color:{color};font-weight:600;">{cnt}</span>
+                    </div>
+                    <div style="height:3px;background:#1a2535;border-radius:2px;overflow:hidden;">
+                        <div style="height:100%;width:{bar_w}%;background:{color};border-radius:2px;
+                                    transition:width 0.5s ease;"></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # Agent breakdown
+        agent_counts = Counter(
+            f.get("agent","").split(" - ")[0].strip()
+            for f in findings
+        )
+        if agent_counts:
+            agent_color_map = {
+                "Agent A": "#00c8ff", "Agent B": "#a78bfa", "Agent C": "#34d399",
+                "Agent D": "#94a3b8", "Agent E": "#fb923c", "Agent F": "#f472b6",
+                "Agent G": "#60a5fa", "Agent H": "#fbbf24", "Agent I": "#4ade80",
+            }
+            st.markdown("""
+            <div style="background:#0f1822;border:1px solid #1a2535;border-radius:12px;padding:18px;">
+                <div style="font-size:0.72rem;font-weight:600;color:#2a5a72;text-transform:uppercase;
+                            letter-spacing:1.5px;margin-bottom:14px;">🤖 Findings by Agent</div>
+            """, unsafe_allow_html=True)
+            for ag, cnt in sorted(agent_counts.items(), key=lambda x: -x[1]):
+                color = agent_color_map.get(ag, "#4a7a9a")
+                st.markdown(f"""
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                            padding:6px 0;border-bottom:1px solid #0d1520;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="width:5px;height:5px;border-radius:50%;background:{color};"></div>
+                        <span style="font-size:0.72rem;color:#3a5a72;">{ag}</span>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;
+                                 color:{color};font-weight:600;">{cnt}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_main:
+        # ── FILTER BAR ────────────────────────────────────────────────
+        st.markdown("""
+        <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;
+                    color:#5a8aaa;margin-bottom:14px;">Security Findings</div>
+        """, unsafe_allow_html=True)
+
+        fc1, fc2, fc3 = st.columns([2, 1, 1])
+        with fc1:
+            sev_opts = ["🚨 Critical", "🔴 High", "🟡 Medium", "🟢 Low"]
+            sev_sel  = st.multiselect("Severity", sev_opts, default=sev_opts, label_visibility="collapsed")
+            sev_map  = {"🚨 Critical":"CRITICAL","🔴 High":"HIGH","🟡 Medium":"MEDIUM","🟢 Low":"LOW"}
+            sev_codes= [sev_map[s] for s in sev_sel if s in sev_map]
+        with fc2:
+            search = st.text_input("Search", placeholder="SQL, password…", label_visibility="collapsed")
+        with fc3:
+            sort_by = st.selectbox("Sort", ["Severity", "Line number", "Agent"], label_visibility="collapsed")
+
+        filtered = [f for f in findings
+                    if f.get("severity","") in sev_codes
+                    and (not search or search.lower() in json.dumps(f).lower())]
+        if sort_by == "Severity":
+            sev_order = {"CRITICAL":0,"HIGH":1,"MEDIUM":2,"LOW":3}
+            filtered.sort(key=lambda x: sev_order.get(x.get("severity","LOW"),4))
+        elif sort_by == "Line number":
+            filtered.sort(key=lambda x: x.get("lineno") or 0)
+        else:
+            filtered.sort(key=lambda x: x.get("agent",""))
+
+        st.markdown(f"""
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:#2a4a5e;
+                    padding:6px 0 14px 0;">Showing {len(filtered)} of {total} findings</div>
+        """, unsafe_allow_html=True)
+
+        # ── FINDING CARDS ──────────────────────────────────────────────
+        for i, f in enumerate(filtered):
+            s       = f.get("severity","LOW")
+            sc      = sev(s)
+            title   = f.get("title","Unknown Issue")
+            desc    = f.get("description","")
+            rec     = f.get("recommendation","")
+            snippet = f.get("code_snippet","")
+            lineno  = f.get("lineno")
+            fpath   = f.get("filepath","")
+            cwe     = f.get("cwe_id","")
+            agent   = f.get("agent","").split(" - ")[0].split(" [")[0].strip()
+            owasp_id   = f.get("owasp_id","")
+            owasp_name = f.get("owasp_name","")
+            owasp_url  = f.get("owasp_url","https://owasp.org/Top10/")
+            fix     = f.get("fix_suggestion")
+            fname_f = fpath.replace("\\","/").split("/")[-1] if fpath else ""
+            plain   = plain_english(title)
+
+            expanded = i < 3 and s == "CRITICAL"
+
+            with st.expander(
+                f"{'🚨' if s=='CRITICAL' else '🔴' if s=='HIGH' else '🟡' if s=='MEDIUM' else '🟢'}  "
+                f"**{title}**  —  `Line {lineno}`",
+                expanded=expanded
+            ):
+                # Meta row
+                meta_parts = []
+                if fname_f: meta_parts.append(f"📄 {fname_f}")
+                if lineno:  meta_parts.append(f"Line {lineno}")
+                if cwe:     meta_parts.append(f"🔖 {cwe}")
+                if agent:   meta_parts.append(f"🤖 {agent}")
+
+                badges_html = ""
+                if owasp_id and owasp_name:
+                    badges_html += f'<a href="{owasp_url}" target="_blank" style="text-decoration:none;"><span style="display:inline-block;background:rgba(0,214,143,0.1);border:1px solid rgba(0,214,143,0.25);border-radius:5px;padding:2px 9px;font-size:0.65rem;color:#00d68f;font-weight:600;letter-spacing:0.5px;margin-right:6px;">🛡️ {owasp_id} — {owasp_name}</span></a>'
+
+                sev_badge = f'<span style="display:inline-block;background:{sc["bg"]};border:1px solid {sc["border"]};border-radius:5px;padding:2px 9px;font-size:0.65rem;color:{sc["color"]};font-weight:700;letter-spacing:0.5px;margin-right:6px;">{s}</span>'
+
+                st.markdown(f"""
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:0.72rem;color:#2a4a5e;margin-bottom:6px;">
+                        {"  ·  ".join(meta_parts)}
+                    </div>
+                    {sev_badge}{badges_html}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # What it means
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02);border-left:3px solid {sc['color']};
+                            border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:12px;">
+                    <div style="font-size:0.65rem;font-weight:600;color:{sc['color']}80;
+                                text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">
+                        What this means
+                    </div>
+                    <div style="font-size:0.85rem;color:#a0b8c8;line-height:1.6;">{plain}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Code snippet
+                if snippet:
+                    st.markdown(f"""
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:0.65rem;color:#2a5a72;margin-bottom:5px;
+                                    font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+                            Vulnerable code
+                        </div>
+                        <div style="background:#050810;border:1px solid #1a2535;border-radius:8px;
+                                    padding:12px 14px;font-family:'JetBrains Mono',monospace;
+                                    font-size:0.75rem;color:#e07a5f;white-space:pre-wrap;
+                                    word-break:break-all;line-height:1.6;">
+{_html.escape(snippet[:350])}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Auto-fix
+                if fix and fix.get("after"):
+                    fix_type  = fix.get("type","rule")
+                    fix_label = "AI-Generated Fix (Ollama)" if fix_type == "ollama" else "Rule-Based Fix"
+                    fix_color = "#a78bfa" if fix_type == "ollama" else "#60a5fa"
+                    st.markdown(f"""
+                    <div style="background:rgba(0,214,143,0.04);border:1px solid rgba(0,214,143,0.15);
+                                border-radius:8px;padding:14px 16px;margin-bottom:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="font-size:0.65rem;font-weight:600;color:#00d68f;
+                                         text-transform:uppercase;letter-spacing:1px;">⚡ {fix_label}</span>
+                        </div>
+                        <div style="background:#050810;border:1px solid #1a3525;border-radius:8px;
+                                    padding:12px 14px;font-family:'JetBrains Mono',monospace;
+                                    font-size:0.75rem;color:#4ade80;white-space:pre-wrap;
+                                    word-break:break-all;line-height:1.6;margin-bottom:8px;">
+{_html.escape(str(fix.get("after",""))[:450])}</div>
+                        {f'<div style="font-size:0.75rem;color:#2a6a4a;line-height:1.5;">{_html.escape(str(fix.get("explanation",""))[:250])}</div>' if fix.get("explanation") else ""}
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif rec:
+                    st.markdown(f"""
+                    <div style="background:rgba(0,200,255,0.04);border-left:3px solid rgba(0,200,255,0.3);
+                                border-radius:0 8px 8px 0;padding:12px 16px;">
+                        <div style="font-size:0.65rem;font-weight:600;color:#2a7a9a;
+                                    text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">
+                            How to fix it
+                        </div>
+                        <div style="font-size:0.8rem;color:#3a8aaa;line-height:1.6;">{rec}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+

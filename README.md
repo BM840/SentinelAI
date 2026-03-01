@@ -18,7 +18,11 @@ Unlike traditional static analysis tools that only match patterns, SentinelAI us
 ---
 
 ## Demo — Scanning a Flask Banking API
+## 🎬 Demo
 
+[![SentinelAI Demo](https://img.youtube.com/vi/W8bhxYdgS4A/maxresdefault.jpg)](https://youtu.be/W8bhxYdgS4A)
+
+> Full scan of a vulnerable Flask app — 41 findings, 9 agents, local LLM (phi3), ~100 seconds
 ```
 ============================================================
   SentinelAI - Multi-Agent Security Auditor

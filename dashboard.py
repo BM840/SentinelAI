@@ -192,6 +192,29 @@ def risk_color(rl):
     if "MEDIUM" in rl:   return "#f5c400"
     return "#00d68f"
 
+def risk_grade(score: int) -> tuple:
+    """
+    Convert raw risk score (0-500) to:
+    - Letter grade (A+ to F)
+    - Percentage (0-100)
+    - Grade color
+    - Grade label
+    """
+    pct = round(max(0, min(100, (1 - score / 500) * 100)))
+    if pct >= 95:   return "A+", pct, "#00d68f",  "Excellent"
+    if pct >= 90:   return "A",  pct, "#00d68f",  "Excellent"
+    if pct >= 85:   return "A-", pct, "#00d68f",  "Great"
+    if pct >= 80:   return "B+", pct, "#52c41a",  "Good"
+    if pct >= 75:   return "B",  pct, "#52c41a",  "Good"
+    if pct >= 70:   return "B-", pct, "#a3d977",  "Acceptable"
+    if pct >= 65:   return "C+", pct, "#f5c400",  "Needs Work"
+    if pct >= 60:   return "C",  pct, "#f5c400",  "Needs Work"
+    if pct >= 55:   return "C-", pct, "#f5c400",  "Poor"
+    if pct >= 45:   return "D+", pct, "#ff8800",  "Poor"
+    if pct >= 35:   return "D",  pct, "#ff8800",  "Dangerous"
+    if pct >= 25:   return "D-", pct, "#ff6600",  "Dangerous"
+    return              "F",  pct, "#ff3d3d",  "Critical Risk"
+
 def plain_english(title):
     t = title.lower()
     m = {
@@ -239,7 +262,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown("<div style='padding:8px 0;'>", unsafe_allow_html=True)
-    mode = st.radio("NAV", ["🔍  New Scan", "📊  View Results"], label_visibility="collapsed")
+    mode = st.radio("NAV", ["🔍  New Scan", "📊  View Results", "🤖  AI Code Gen"], label_visibility="collapsed")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -609,16 +632,25 @@ if "🔍" in mode:
                     total = sm.get("total_findings", 0)
                     rc    = risk_color(rl)
                     sev_b = sm.get("severity_breakdown", {})
+                    g, g_pct, g_color, g_label = risk_grade(score)
 
                     st.markdown(f"""
                     <div style="background:#0f1822;border:1px solid {rc}33;border-radius:12px;
                                 padding:24px;margin-top:20px;">
                         <div style="display:flex;align-items:flex-start;gap:24px;">
-                            <div style="text-align:center;flex-shrink:0;">
+                            <div style="text-align:center;flex-shrink:0;min-width:90px;">
                                 <div style="font-family:'Syne',sans-serif;font-size:3.5rem;
-                                            font-weight:800;color:{rc};line-height:1;">{score}</div>
-                                <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;
-                                            color:{rc};letter-spacing:1px;opacity:0.7;">RISK SCORE</div>
+                                            font-weight:800;color:{g_color};line-height:1;">{g}</div>
+                                <div style="font-size:0.62rem;color:{g_color};
+                                            letter-spacing:1px;opacity:0.8;margin-top:2px;">{g_label}</div>
+                                <div style="background:#1a2535;border-radius:4px;height:5px;
+                                            margin-top:6px;overflow:hidden;">
+                                    <div style="width:{g_pct}%;height:100%;
+                                                background:{g_color};border-radius:4px;"></div>
+                                </div>
+                                <div style="font-size:0.62rem;color:#4a6275;margin-top:3px;">
+                                    {g_pct}% · {score}/500
+                                </div>
                             </div>
                             <div style="flex:1;">
                                 <div style="font-size:1.1rem;font-weight:700;color:{rc};margin-bottom:6px;">
@@ -645,7 +677,7 @@ if "🔍" in mode:
 # ══════════════════════════════════════════════════════════════════════════
 #  MODE: VIEW RESULTS
 # ══════════════════════════════════════════════════════════════════════════
-else:
+elif "📊" in mode:
     import glob
 
     # Find reports
@@ -710,6 +742,7 @@ else:
     target   = summary.get("target_path", "")
     files    = summary.get("files_scanned", [])
     rc       = risk_color(rl)
+    grade, grade_pct, grade_color, grade_label = risk_grade(score)
     rmt      = datetime.datetime.fromtimestamp(os.path.getmtime(selected))
     fname    = (files[0].replace("\\","/").split("/")[-1] if files
                 else target.replace("\\","/").split("/")[-1])
@@ -737,11 +770,23 @@ else:
     sb1, sb2, sb3, sb4, sb5, sb6 = st.columns([1.2, 0.05, 2.5, 0.05, 1, 0.05])
     with sb1:
         st.markdown(f"""
-        <div style="text-align:center;padding:16px 8px;">
-            <div style="font-size:3.2rem;font-weight:800;color:{rc};
-                        line-height:1;font-family:sans-serif;">{score}</div>
-            <div style="font-size:0.58rem;color:{rc};opacity:0.6;letter-spacing:2px;
-                        text-transform:uppercase;margin-top:4px;">RISK SCORE</div>
+        <div style="text-align:center;padding:12px 8px;">
+            <div style="font-size:3.5rem;font-weight:800;color:{grade_color};
+                        line-height:1;font-family:sans-serif;">{grade}</div>
+            <div style="font-size:0.65rem;color:{grade_color};opacity:0.7;letter-spacing:2px;
+                        text-transform:uppercase;margin-top:2px;">{grade_label}</div>
+            <div style="margin-top:8px;">
+                <div style="background:#1a2535;border-radius:6px;height:6px;overflow:hidden;">
+                    <div style="width:{grade_pct}%;height:100%;
+                                background:linear-gradient(90deg,{grade_color}88,{grade_color});
+                                border-radius:6px;transition:width 0.5s;"></div>
+                </div>
+                <div style="font-size:0.7rem;color:{grade_color};margin-top:4px;">
+                    Security Score: {grade_pct}%
+                    &nbsp;·&nbsp;
+                    <span style="color:#4a6275;">Raw: {score}/500</span>
+                </div>
+            </div>
         </div>""", unsafe_allow_html=True)
     with sb2:
         st.markdown(f'<div style="height:80px;background:#1a2535;width:1px;margin:auto;"></div>',
@@ -1032,3 +1077,466 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
+
+# ══════════════════════════════════════════════════════════════════════════
+#  MODE: AI CODE GENERATOR + SECURITY LOOP
+# ══════════════════════════════════════════════════════════════════════════
+elif "🤖" in mode:
+    import tempfile, ast as _ast
+
+    st.markdown("""
+    <div style="margin-bottom:24px;">
+        <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;
+                    color:#00c8ff;letter-spacing:-0.5px;">
+            🤖 AI Code Generator
+        </div>
+        <div style="color:#4a6275;font-size:0.9rem;margin-top:6px;">
+            Describe the code you need &rarr; AI writes it &rarr; SentinelAI scans it &rarr;
+            Critical issues auto-fixed &rarr; Secure production-ready code
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:28px;">
+        <div style="background:#0b1a2a;border:1px solid #1a3a5a;border-radius:12px;
+                    padding:18px 12px;text-align:center;position:relative;">
+            <div style="font-size:1.8rem;margin-bottom:8px">💬</div>
+            <div style="color:#00c8ff;font-size:0.78rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:1px;">1. Describe</div>
+            <div style="color:#4a6275;font-size:0.75rem;margin-top:5px;line-height:1.4">
+                Tell AI what Python code you need</div>
+            <div style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);
+                        color:#1a3a5a;font-size:1.4rem;z-index:1">&#8594;</div>
+        </div>
+        <div style="background:#0b1a2a;border:1px solid #1a3a5a;border-radius:12px;
+                    padding:18px 12px;text-align:center;position:relative;">
+            <div style="font-size:1.8rem;margin-bottom:8px">&#9889;</div>
+            <div style="color:#00c8ff;font-size:0.78rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:1px;">2. Generate</div>
+            <div style="color:#4a6275;font-size:0.75rem;margin-top:5px;line-height:1.4">
+                phi3 writes complete working code</div>
+            <div style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);
+                        color:#1a3a5a;font-size:1.4rem;z-index:1">&#8594;</div>
+        </div>
+        <div style="background:#0b1a2a;border:1px solid #1a3a5a;border-radius:12px;
+                    padding:18px 12px;text-align:center;position:relative;">
+            <div style="font-size:1.8rem;margin-bottom:8px">&#128737;</div>
+            <div style="color:#00c8ff;font-size:0.78rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:1px;">3. Scan</div>
+            <div style="color:#4a6275;font-size:0.75rem;margin-top:5px;line-height:1.4">
+                9 agents audit for vulnerabilities</div>
+            <div style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);
+                        color:#1a3a5a;font-size:1.4rem;z-index:1">&#8594;</div>
+        </div>
+        <div style="background:#0b1a2a;border:1px solid #1a3a5a;border-radius:12px;
+                    padding:18px 12px;text-align:center;position:relative;">
+            <div style="font-size:1.8rem;margin-bottom:8px">&#128260;</div>
+            <div style="color:#00c8ff;font-size:0.78rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:1px;">4. Fix</div>
+            <div style="color:#4a6275;font-size:0.75rem;margin-top:5px;line-height:1.4">
+                Critical issues auto-rewritten</div>
+            <div style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);
+                        color:#1a3a5a;font-size:1.4rem;z-index:1">&#8594;</div>
+        </div>
+        <div style="background:#001a0a;border:1px solid #00d68f55;border-radius:12px;
+                    padding:18px 12px;text-align:center;">
+            <div style="font-size:1.8rem;margin-bottom:8px">&#9989;</div>
+            <div style="color:#00d68f;font-size:0.78rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:1px;">5. Secure</div>
+            <div style="color:#4a6275;font-size:0.75rem;margin-top:5px;line-height:1.4">
+                Download production-ready code</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### What code do you need?")
+
+    examples = [
+        "Flask login system with username and password",
+        "REST API endpoint that accepts user data and saves to SQLite",
+        "File upload handler for a web application",
+        "Password reset system with email token",
+        "User registration with email and password validation",
+    ]
+    example = st.selectbox("Quick examples:", ["(type your own below)"] + examples)
+    default_prompt = "" if example == "(type your own below)" else example
+
+    user_prompt = st.text_input(
+        "Describe the code:",
+        value=default_prompt,
+        placeholder="e.g. Flask login system with username and password stored in SQLite",
+        label_visibility="collapsed"
+    )
+
+    # Settings card — grouped cleanly
+    st.markdown("""
+    <div style="background:#0b1119;border:1px solid #1a2535;border-radius:10px;
+                padding:14px 18px;margin:12px 0 16px 0;">
+        <div style="font-size:0.72rem;font-weight:600;color:#4a6275;
+                    text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+            ⚙️ Scan Settings
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    gc1, gc2, gc3 = st.columns([3, 2, 2])
+    with gc1:
+        max_loops = st.slider("Max fix loops", 1, 3, 2,
+                              help="How many times to rewrite and re-scan if issues remain")
+    with gc2:
+        fast_scan = st.checkbox("Fast scan (skip LLM)", value=False,
+                                help="Skip Agent B — faster but less thorough")
+    with gc3:
+        st.markdown("<div style='padding-top:28px;color:#4a6275;font-size:0.75rem'>"
+                    "⚡ ~30s fast &nbsp;|&nbsp; 🔍 ~100s full</div>",
+                    unsafe_allow_html=True)
+
+    generate_btn = st.button("🚀  Generate + Secure", use_container_width=True)
+
+    def _ollama(prompt_text):
+        try:
+            import requests as _rq
+            r = _rq.post("http://localhost:11434/api/generate",
+                json={"model": "phi3", "prompt": prompt_text,
+                      "stream": False, "options": {"temperature": 0.2, "num_predict": 1200}},
+                timeout=120)
+            if r.status_code == 200:
+                return r.json().get("response", "")
+        except Exception as e:
+            return f"ERROR:{e}"
+        return ""
+
+    def _extract_code(resp):
+        import re
+        m = re.search(r'```python\s*(.*?)```', resp, re.DOTALL)
+        if m:
+            return m.group(1).strip()
+        m = re.search(r'```\s*(.*?)```', resp, re.DOTALL)
+        if m:
+            c = m.group(1).strip()
+            if any(k in c for k in ["def ", "import ", "class "]):
+                return c
+        if any(k in resp for k in ["def ", "import ", "class "]):
+            return resp.strip()
+        return resp.strip()
+
+    def _scan(code, loop_n, no_llm=False):
+        td = tempfile.mkdtemp(prefix=f"sentinel_gen{loop_n}_")
+        fp = os.path.join(td, "generated.py")
+        open(fp, "w", encoding="utf-8").write(code)
+        cmd = [sys.executable, MAIN_PY, td, "--output-dir", td]
+        if no_llm:
+            cmd.append("--no-llm")
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            rp = os.path.join(td, "sentinel_report.json")
+            if os.path.exists(rp):
+                return json.load(open(rp)), td
+        except Exception:
+            pass
+        return None, td
+
+    if generate_btn and user_prompt.strip():
+        st.markdown("---")
+
+        # STEP 1: Generate
+        with st.status("Generating code with phi3...", expanded=True) as gs:
+            st.write("Sending prompt to Ollama...")
+            raw = _ollama(
+                f"Write a complete working Python implementation for: {user_prompt}\n\n"
+                "Requirements:\n- Complete working code with all imports\n"
+                "- Brief comments on key parts\n"
+                "- Return ONLY the code inside a ```python ``` block\n\nCODE:"
+            )
+            if raw.startswith("ERROR:"):
+                gs.update(label="Ollama not available", state="error")
+                st.error(f"Cannot connect to Ollama: {raw}\n\nRun: `ollama serve`")
+                st.stop()
+            gen_code = _extract_code(raw)
+            if not gen_code or len(gen_code) < 20:
+                gs.update(label="Code generation failed", state="error")
+                st.error("phi3 did not return valid code. Try a more specific prompt.")
+                st.stop()
+            gs.update(label=f"Code generated ({len(gen_code.splitlines())} lines)", state="complete")
+
+        st.markdown("### Generated Code (Before Scan)")
+        st.code(gen_code, language="python")
+
+        # STEP 2-4: Scan + fix loop
+        cur_code    = gen_code
+        loop_log    = []
+        final_code  = gen_code
+        is_clean    = False
+
+        for loop in range(1, max_loops + 1):
+            st.markdown(f"---\n### Security Scan — Round {loop}")
+
+            with st.status(f"Running SentinelAI (round {loop})...", expanded=True) as ss:
+                st.write("Agent A — Pattern Detection")
+                st.write("Agent B — Auth Logic (LLM)")
+                st.write("Agent C — Data Flow")
+                st.write("Agents D-H — Risk Score, Deps, Git, CORS, Crypto")
+                report, _ = _scan(cur_code, loop, no_llm=fast_scan)
+                if not report:
+                    ss.update(label="Scan failed", state="error")
+                    break
+                summ  = report.get("summary", {})
+                finds = report.get("findings", [])
+                risk  = summ.get("risk_score", 0)
+                sevb  = summ.get("severity_breakdown", {})
+                nc    = sevb.get("CRITICAL", 0)
+                nh    = sevb.get("HIGH", 0)
+                loop_log.append({"loop": loop, "risk": risk, "critical": nc,
+                                  "high": nh, "code": cur_code})
+                ss.update(label=f"Round {loop} done — Risk:{risk} Critical:{nc} High:{nh}",
+                          state="complete")
+
+            lc1, lc2, lc3, lc4 = st.columns(4)
+            _g, _gp, _gc, _gl = risk_grade(risk)
+            lc1.metric("Risk Score", f"{_g} ({_gp}%)", delta=f"raw {risk}/500", delta_color="off")
+            lc2.metric("Critical",   nc)
+            lc3.metric("High",       nh)
+            lc4.metric("Total",      len(finds))
+
+            top_finds = [f for f in finds if f.get("severity") in ("CRITICAL","HIGH")][:5]
+            if top_finds:
+                with st.expander(f"Issues found in Round {loop}", expanded=(loop==1)):
+                    for f in top_finds:
+                        sc = {"CRITICAL":"#ff4d4f","HIGH":"#fa8c16",
+                              "MEDIUM":"#fadb14","LOW":"#52c41a"}.get(f.get("severity",""),"#888")
+                        st.markdown(
+                            f"<div style='padding:8px 12px;margin-bottom:5px;"
+                            f"background:#0f1822;border-left:3px solid {sc};"
+                            f"border-radius:0 6px 6px 0;'>"
+                            f"<b style='color:{sc};font-size:0.75rem'>{f.get('severity','')}</b> "
+                            f"<span style='color:#cdd6e0;font-size:0.82rem'>{f.get('title','')}</span>"
+                            f" <span style='color:#4a6275;font-size:0.72rem'>Line {f.get('lineno','?')}</span>"
+                            f"<div style='color:#4a6275;font-size:0.72rem;margin-top:2px'>"
+                            f"{str(f.get('description',''))[:110]}...</div></div>",
+                            unsafe_allow_html=True)
+
+            if nc == 0 and nh == 0:
+                is_clean   = True
+                final_code = cur_code
+                st.success(f"No CRITICAL or HIGH issues in Round {loop} — code is secure!")
+                break
+
+            if loop < max_loops:
+                st.markdown(f"**Rewriting code to fix {nc} CRITICAL + {nh} HIGH issues...**")
+                with st.spinner("phi3 rewriting with security fixes..."):
+                    issues_txt = ""
+                    for i, f in enumerate(
+                        [x for x in finds if x.get("severity") in ("CRITICAL","HIGH")][:8], 1
+                    ):
+                        issues_txt += (f"\nISSUE {i}: {f.get('title','')}"
+                                       f"\n  Line {f.get('lineno','?')}: {f.get('description','')}"
+                                       f"\n  Fix: {f.get('recommendation','')}\n")
+
+                    rewrite_resp = _ollama(
+                        f"You are a Python security expert. Rewrite this code fixing ALL issues.\n\n"
+                        f"ISSUES TO FIX:\n{issues_txt}\n\n"
+                        f"ORIGINAL CODE:\n```python\n{cur_code}\n```\n\n"
+                        f"MANDATORY RULES — every rule must be applied:\n"
+                        f"1. NEVER use app.run(debug=True) — replace with app.run(debug=False)\n"
+                        f"2. NEVER hardcode secrets — replace ALL hardcoded passwords/keys/tokens with os.environ.get('VAR_NAME')\n"
+                        f"3. NEVER use MD5/SHA1 for passwords — use bcrypt.hashpw(pwd.encode(), bcrypt.gensalt())\n"
+                        f"4. NEVER build SQL with string formatting — use parameterized queries with ? placeholders\n"
+                        f"5. NEVER use eval() on user input\n"
+                        f"6. Always add: import os at the top\n"
+                        f"Apply every rule above even if not listed in ISSUES. Keep all functionality.\n"
+                        f"Return ONLY the complete fixed code in ```python ``` block.\n\nFIXED CODE:"
+                    )
+                    new_code = _extract_code(rewrite_resp)
+                    if new_code and len(new_code) > 50:
+                        try:
+                            _ast.parse(new_code)
+                            # Post-process: deterministically fix common phi3 mistakes
+                            new_code = new_code.replace("app.run(debug=True", "app.run(debug=False")
+                            import re as _re2
+                            new_code = _re2.sub(
+                                r"""app\.secret_key\s*=\s*['""][^'""]+['""]""",
+                                "app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))",
+                                new_code
+                            )
+                            if "os.environ" in new_code and "import os" not in new_code:
+                                new_code = "import os\n" + new_code
+                            cur_code = new_code
+                            st.info(f"Code rewritten ({len(new_code.splitlines())} lines) — scanning again...")
+                        except SyntaxError as e:
+                            st.warning(f"Rewritten code has syntax error ({e}) — keeping previous version")
+                    else:
+                        st.warning("Rewrite produced no valid code — stopping")
+                        break
+            else:
+                final_code = cur_code
+                if nc > 0 or nh > 0:
+                    st.warning(f"Max loops reached. {nc} CRITICAL + {nh} HIGH issues remain — review manually.")
+
+        # STEP 5: Final output
+        st.markdown("---")
+        st.markdown("### Final Secure Code")
+
+        if len(loop_log) > 1:
+            first, last = loop_log[0], loop_log[-1]
+            fc1, fc2, fc3 = st.columns(3)
+            _fg, _fgp, _fgc, _fgl = risk_grade(last["risk"])
+            _ig, _igp, _igc, _igl = risk_grade(first["risk"])
+            fc1.metric("Security Grade", f"{_fg} ({_fgp}%)",
+                       delta=f"{_fgp - _igp:+d}% improvement", delta_color="normal")
+            fc2.metric("Critical",    last["critical"],
+                       delta=f"{last['critical']-first['critical']:+d}", delta_color="inverse")
+            fc3.metric("Fix Loops",   len(loop_log))
+
+        if is_clean:
+            st.markdown("""<div style="background:#001a0a;border:1px solid #00d68f55;
+                border-radius:8px;padding:14px;margin-bottom:12px;">
+                <span style="color:#00d68f;font-weight:700;">
+                SECURE CODE — No CRITICAL or HIGH vulnerabilities detected</span></div>""",
+                unsafe_allow_html=True)
+        else:
+            st.markdown("""<div style="background:#1a0a00;border:1px solid #ff880055;
+                border-radius:8px;padding:14px;margin-bottom:12px;">
+                <span style="color:#ff8800;font-weight:700;">
+                REVIEW REQUIRED — Some issues remain after max fix loops</span></div>""",
+                unsafe_allow_html=True)
+
+        st.code(final_code, language="python")
+
+        st.download_button(
+            label="Download Secure Code (.py)",
+            data=final_code,
+            file_name="secure_generated_code.py",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+        if len(loop_log) > 1:
+            with st.expander("🔍 View Diff — What Changed", expanded=True):
+                import difflib, html as _dhtml
+
+                orig_lines  = loop_log[0]["code"].splitlines()
+                final_lines = final_code.splitlines()
+                diff        = list(difflib.unified_diff(
+                    orig_lines, final_lines,
+                    fromfile="original_generated.py",
+                    tofile="secure_fixed.py",
+                    lineterm=""
+                ))
+
+                if not diff:
+                    st.info("No line-level changes detected between original and final code.")
+                else:
+                    # Stats
+                    added   = sum(1 for l in diff if l.startswith("+") and not l.startswith("+++"))
+                    removed = sum(1 for l in diff if l.startswith("-") and not l.startswith("---"))
+                    dc1, dc2, dc3 = st.columns(3)
+                    dc1.metric("Lines Added",   f"+{added}",   delta=f"+{added}",  delta_color="normal")
+                    dc2.metric("Lines Removed", f"-{removed}", delta=f"-{removed}", delta_color="inverse")
+                    dc3.metric("Net Change",    f"{added-removed:+d}")
+
+                    # Build colored diff HTML
+                    diff_html = []
+                    diff_html.append(
+                        "<div style='font-family:JetBrains Mono,Courier New,monospace;"
+                        "font-size:0.72rem;line-height:1.6;background:#060a0f;"
+                        "border:1px solid #1a2535;border-radius:8px;"
+                        "padding:16px;overflow-x:auto;max-height:520px;overflow-y:auto;'>"
+                    )
+                    for line in diff:
+                        escaped = _dhtml.escape(line)
+                        if line.startswith("+++") or line.startswith("---"):
+                            diff_html.append(
+                                f"<div style='color:#4a6275;padding:1px 0'>{escaped}</div>"
+                            )
+                        elif line.startswith("@@"):
+                            diff_html.append(
+                                f"<div style='color:#00c8ff;background:#0a1a2a;"
+                                f"padding:3px 8px;margin:4px 0;border-radius:4px'>{escaped}</div>"
+                            )
+                        elif line.startswith("+"):
+                            diff_html.append(
+                                f"<div style='color:#00d68f;background:#001a0a;"
+                                f"padding:1px 4px;border-left:3px solid #00d68f;"
+                                f"margin:1px 0'>{escaped}</div>"
+                            )
+                        elif line.startswith("-"):
+                            diff_html.append(
+                                f"<div style='color:#ff4d4f;background:#1a0505;"
+                                f"padding:1px 4px;border-left:3px solid #ff4d4f;"
+                                f"margin:1px 0;text-decoration:line-through;opacity:0.8'>{escaped}</div>"
+                            )
+                        else:
+                            diff_html.append(
+                                f"<div style='color:#4a6275;padding:1px 4px'>{escaped}</div>"
+                            )
+                    diff_html.append("</div>")
+
+                    # Legend
+                    st.markdown(
+                        "<div style='display:flex;gap:16px;margin-bottom:8px;"
+                        "font-size:0.75rem;'>"
+                        "<span style='color:#00d68f'>&#9632; Added (security fix)</span>"
+                        "<span style='color:#ff4d4f'>&#9632; Removed (vulnerable code)</span>"
+                        "<span style='color:#00c8ff'>&#9632; Context marker</span>"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                    st.markdown("".join(diff_html), unsafe_allow_html=True)
+
+                    # Download diff as patch file
+                    patch_text = "\n".join(diff)
+                    st.download_button(
+                        label="Download .patch file",
+                        data=patch_text,
+                        file_name="security_fixes.patch",
+                        mime="text/plain",
+                        use_container_width=False
+                    )
+
+                # Always show side by side below diff
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("**Side-by-side comparison:**")
+                oc1, oc2 = st.columns(2)
+                with oc1:
+                    st.markdown("<span style='color:#ff4d4f;font-size:0.8rem;font-weight:600'>ORIGINAL (vulnerable)</span>", unsafe_allow_html=True)
+                    st.code(loop_log[0]["code"], language="python")
+                with oc2:
+                    st.markdown("<span style='color:#00d68f;font-size:0.8rem;font-weight:600'>FINAL (secured)</span>", unsafe_allow_html=True)
+                    st.code(final_code, language="python")
+
+    elif generate_btn:
+        st.warning("Please describe the code you need first.")
+
+    if not generate_btn:
+        st.markdown("""
+        <div style="margin-top:32px;padding:20px;background:#0b1119;
+                    border:1px solid #1a2535;border-radius:10px;">
+            <div style="font-size:0.72rem;font-weight:600;color:#4a6275;
+                        text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+                💡 Try these prompts
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <span style="background:#0f1822;border:1px solid #1a3a5a;color:#7abaff;
+                             padding:5px 12px;border-radius:16px;font-size:0.78rem;cursor:pointer;">
+                    Flask login system with SQLite
+                </span>
+                <span style="background:#0f1822;border:1px solid #1a3a5a;color:#7abaff;
+                             padding:5px 12px;border-radius:16px;font-size:0.78rem;">
+                    REST API with user data + database
+                </span>
+                <span style="background:#0f1822;border:1px solid #1a3a5a;color:#7abaff;
+                             padding:5px 12px;border-radius:16px;font-size:0.78rem;">
+                    File upload handler
+                </span>
+                <span style="background:#0f1822;border:1px solid #1a3a5a;color:#7abaff;
+                             padding:5px 12px;border-radius:16px;font-size:0.78rem;">
+                    Password reset with email token
+                </span>
+                <span style="background:#0f1822;border:1px solid #1a3a5a;color:#7abaff;
+                             padding:5px 12px;border-radius:16px;font-size:0.78rem;">
+                    Admin dashboard with auth
+                </span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)

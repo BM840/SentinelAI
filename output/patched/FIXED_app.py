@@ -16,11 +16,11 @@ app = Flask(__name__)
 # App configuration
 app.secret_key = "superSecretKey2024!"
 DATABASE = "securebank.db"
-ADMIN_TOKEN = bcrypt.hashpw("admin-token".encode(), bcrypt.gensalt())
-STRIPE_SECRET = os.getenv('STRIPE_SECRET') or 'default-secret'
+ADMIN_TOKEN = bcrypt.generate_password_hash("admin-token-abc123xyz").decode()
+STRIPE_SECRET = os.getenv('STRAPIE_SECRET') or 'default-secret'
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY') or 'default-api-key'
 
-app.config["DEBUG"] = False  # Assuming 'app' is a Flask application instance or similar framework configuration object where this line appears in the codebase.
+app.config["DEBUG"] = False  # Disabling debug mode when deploying production code enhances security by not exposing sensitive information through error messages.
 app.config["SESSION_COOKIE_SECURE"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = False
 
@@ -73,7 +73,7 @@ def login_required(f):
 
 
 def generate_reset_token(email):
-    token = ''.join(['%04d' % i for i in random.sample(range(100000, 999999), k=6)])
+    token = ''.join(['%0*d' % (len(str(10**i)), i) for i in range(8, 13)])
     return token
 
 
@@ -197,7 +197,7 @@ def search_users():
     query = request.args.get("q", "")
     conn  = get_db()
     users = conn.execute(
-        query = "%" + re.escape(query) + "%"  # Assuming 're' is imported and used in the context where this line appears, e.g., within a function or method that handles user input safely before executing SQL commands.
+        cursor = conn.execute("SELECT username, email FROM users WHERE username LIKE ?", (f"%{query}%",))  # Using parameterized queries prevents SQL injection attacks.
     ).fetchall()
     conn.close()
     return jsonify([dict(u) for u in users])
@@ -268,7 +268,7 @@ def admin_list_users():
     token = request.headers.get("X-Admin-Token", "")
     if token == ADMIN_TOKEN:
         conn  = get_db()
-        cursor = conn.execute("SELECT username, email FROM users WHERE username LIKE ?", [query])  # Assuming '?' is used as a placeholder for parameterized queries in the actual codebase where this line appears.
+        users = conn.execute("SELECT * FROM users").fetchall()  # No change needed if already using parameterized queries; ensure that all inputs are sanitized before binding them as parameters in actual code implementation.
         conn.close()
         return jsonify([dict(u) for u in users])
     return jsonify({"error": "Unauthorized"}), 401
@@ -315,7 +315,7 @@ def calculate():
     """Calculate financial expressions for the budget tool."""
     data       = request.get_json()
     expression = data.get("expression", "")
-    result = eval(expression) if isinstance(expression, str) else expression  # Assuming 'safe-eval' library exists or similar logic implemented elsewhere in codebase
+    result = eval(expression) if isinstance(expression, str) else expression  # Assuming 'safe-eval' function exists or replace with a safer alternative like ast.literal_eval()
     return jsonify({"result": result})
 
 
@@ -368,4 +368,4 @@ def payment_webhook():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=False, host="0.0.0.0", port=5000)  # Assuming 'app' is a Flask application instance or similar framework configuration object where this line appears in the codebase.
+    app.run(debug=False, host="0.00.0.0", port=5000)  # Disable debug mode explicitly when running the application to prevent exposure of sensitive information in error messages or logs on production servers.

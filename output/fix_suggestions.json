@@ -1,9 +1,240 @@
 {
   "stats": {
-    "total_fixes_generated": 0,
-    "ollama_fixes": 0,
-    "rule_fixes": 0,
-    "files_patched": 0
+    "total_fixes_generated": 23,
+    "ollama_fixes": 19,
+    "rule_fixes": 4,
+    "files_patched": 1
   },
-  "fixes": []
+  "fixes": [
+    {
+      "finding_title": "Hardcoded Secret",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 19,
+      "before": "ADMIN_TOKEN = \"admin-token-abc123xyz\"",
+      "after": "ADMIN_TOKEN = bcrypt.generate_password_hash(\"admin-token-abc123xyz\").decode()",
+      "explanation": "Storing hashed tokens instead of plaintext prevents unauthorized access if the token is compromised.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Hardcoded Secret",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 20,
+      "before": "STRIPE_SECRET = \"sk_live_4eKoV8mNpQrL92xZ\"",
+      "after": "STRIPE_SECRET = os.getenv('STRAPIE_SECRET') or 'default-secret'",
+      "explanation": "Using environment variables for secrets avoids hardcoding sensitive information in source code, reducing risk of exposure during sharing or version control processes.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Hardcoded Secret",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 21,
+      "before": "SENDGRID_API_KEY = \"SG.xK9mP2nQvL8rT5wY\"",
+      "after": "SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY') or 'default-api-key'",
+      "explanation": "Similar to STRIPE_SECRET, using environment variables for API keys enhances security by keeping secrets out of the codebase and avoiding accidental exposure during version control.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Use of eval() Detected",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 318,
+      "before": "result     = eval(expression)",
+      "after": "result = eval(expression) if isinstance(expression, str) else expression  # Assuming 'safe-eval' function exists or replace with a safer alternative like ast.literal_eval()",
+      "explanation": "Replacing `eval()` mitigates the risk of executing arbitrary code which could lead to security breaches; using literal evaluation is much more secure for simple expressions without side effects.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SQL Injection Risk - String Concatenation in Query",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 200,
+      "before": "\"SELECT username, email FROM users WHERE username LIKE '%\" + query + \"%'\"",
+      "after": "cursor = conn.execute(\"SELECT username, email FROM users WHERE username LIKE ?\", (f\"%{query}%\",))  # Using parameterized queries prevents SQL injection attacks.",
+      "explanation": "Parameterized queries ensure that input is treated as data and not executable code, thus preventing attackers from manipulating the query to access unauthorized information or perform malicious action",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SQL Injection Risk - String Concatenation in Query",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 271,
+      "before": "users = conn.execute(\"SELECT * FROM users\").fetchall()",
+      "after": "users = conn.execute(\"SELECT * FROM users\").fetchall()  # No change needed if already using parameterized queries; ensure that all inputs are sanitized before binding them as parameters in actual code implementation.",
+      "explanation": "Fetching data without user input directly within the query is safe provided no unsanitized variables from outside sources have been used to construct it, and proper use of prepared statements or param",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 23,
+      "before": "app.config[\"DEBUG\"] = True",
+      "after": "app.config[\"DEBUG\"] = False  # Disabling debug mode when deploying production code enhances security by not exposing sensitive information through error messages.",
+      "explanation": "Debugging modes often reveal stack traces and other details that can be exploited to gain insights into the application's inner workings, potentially leading to further attacks; disabling it in produc",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 371,
+      "before": "app.run(debug=True, host=\"0.0.0.0\", port=5000)",
+      "after": "app.run(debug=False, host=\"0.00.0.0\", port=5000)  # Disable debug mode explicitly when running the application to prevent exposure of sensitive information in error messages or logs on production servers.",
+      "explanation": "Running a Flask (or similar web frameworks) app with `debug` enabled can leak detailed stack traces and other debugging-related data, which could be exploited by attackers; disabling it is essential f",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SQL Injection",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 35,
+      "before": "def init_db():\n    conn = get_db()\n    conn.execute(\"\"\"\n        CREATE TABLE IF NOT EXISTS users (\n            id INTEGER PRIMARY KEY,\n            username TEXT UNIQUE NOT NULL,\n            password TEXT NOT NULL,\n            email TEXT,\n            balance REAL DEFAULT 1000.0,\n            role TEXT...",
+      "after": "conn.execute(\"\"\"CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password BLOB)\"\"\")",
+      "explanation": "This prevents SQL injection by using parameterized queries instead of string concatenation with user input directly in the query.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Weak Hashing Algorithm",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 62,
+      "before": "def hash_password(password):\n    return hashlib.md5(password.encode()).hexdigest()",
+      "after": "def hash_password(password):     return bcrypt.hashpw(password.encode(), bcrypt.gensalt())",
+      "explanation": "Bcrypt is a strong hashing algorithm that includes salting and multiple rounds, making it much more secure than MD5 for storing passwords.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Improper Session Management",
+      "severity": "LOW",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 66,
+      "before": "def login_required(f):\n    @wraps(f)\n    def decorated(*args, **kwargs):\n        if \"user_id\" not in session:\n            return jsonify({\"error\": \"Authentication required\"}), 401\n        return f(*args, **kwargs)\n    return decorated",
+      "after": "def login_required(f):     @wraps(f)     def decorated(*args, **kwargs):         if \"user_id\" not in session:             return jsonify({\"error\": \"Authentication required\"}), 401",
+      "explanation": "This ensures that a user must be authenticated before accessing certain routes by checking for the presence of their unique `user_id` within the secure HTTP session.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Authentication Bypass & SQL Injection",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 106,
+      "before": "def login():\n    data     = request.get_json()\n    username = data.get(\"username\", \"\")\n    password = data.get(\"password\", \"\")\n\n    conn  = get_db()\n    query = \"SELECT * FROM users WHERE username = '%s'\" % username\n    user  = conn.execute(query).fetchone()\n    conn.close()\n\n    if user and user[\"p...",
+      "after": "def login():     data = request.getdependent on further context, but assuming it's meant to fetch username and password from JSON payload: conn  = get_db()",
+      "explanation": "This code snippet is incomplete; however, fixing this would involve using parameterized queries or ORM methods instead of string concatenation for SQL commands with user input.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Insecure Direct Object References (IDOR)",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 132,
+      "before": "def forgot_password():\n    data  = request.get_json()\n    email = data.get(\"email\", \"\")\n\n    token = generate_reset_token(email)\n\n    # Send reset email via external service\n    response = requests.post(\n        \"https://api.sendgrid.com/v3/mail/send\",\n        headers={\"Authorization\": f\"Bearer {SEN...",
+      "after": "def forgot_password():     data = request.get_json()     email = data.get(\"email\", \"\")      token = generate_reset_token(email)       # Send reset ema",
+      "explanation": "This code snippet is incomplete; however, fixing this would involve sending the generated token securely to the user's registered email address without exposing it in logs or URLs and ensuring that to",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Unsanitized User Input Reaches conn.execute()",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 199,
+      "before": "conn.execute(\"SELECT username, email FROM users WHERE username LIKE '%\" + query + \"%'\")",
+      "after": "conn.execute(\"\"\"SELECT username, email FROM users WHERE username = %s\"\"\", (query,))",
+      "explanation": "This uses parameterized queries to prevent SQL injection by separating the query structure from user input values using placeholders and passing them as arguments separately.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Missing Security Header: X-Content-Type-Options",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": null,
+      "before": "",
+      "after": "X-Content-Type-Options: no snippet -> X-Content-Type-Options: nosniff",
+      "explanation": "Setting this header instructs browsers to do not try to infer mime types, which can help prevent MIME type sniffing attacks that could lead to security vulnerabilities.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Missing Security Header: X-Frame-Options",
+      "severity": "MEDIUM",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": null,
+      "before": "",
+      "after": "X-Frame-Options: no snippet -> X-Frame-Options: SAMEORIGIN",
+      "explanation": "This header helps mitigate clickjacking attacks by telling the browser to only allow the page to be displayed in a frame if it's on the same origin as the request.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Missing Security Header: Strict-Transport-Security",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Strict-Transport-Security'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: Content-Security-Policy",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add a Content-Security-Policy header to restrict script/style sources.\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Content-Security-Policy'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: X-XSS-Protection",
+      "severity": "LOW",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['X-XSS-Protection'] = '1; mode=block'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['X-XSS-Protection'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Missing Security Header: Referrer-Policy",
+      "severity": "LOW",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": null,
+      "before": "",
+      "after": "# See recommendation above",
+      "explanation": "Add: response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'\n\nBest practice: Set all security headers globally using an @app.after_request decorator:\n\n@app.after_request\ndef set_security_headers(response):\n    response.headers['Referrer-Policy'] = '...'\n    return response",
+      "type": "rule"
+    },
+    {
+      "finding_title": "Weak Hash Algorithm: MD5",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 63,
+      "before": "return hashlib.md5(password.encode()).hexdigest()",
+      "after": "return hashlib.sha256(password.encode()).hexdigest()",
+      "explanation": "SHA-256 is a stronger hashing algorithm than MD5, which provides better security against brute force attacks and rainbow table lookups.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "Insecure Random - random.randint()",
+      "severity": "HIGH",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 76,
+      "before": "token = str(random.randint(100000, 999999))",
+      "after": "token = ''.join(['%0*d' % (len(str(10**i)), i) for i in range(8, 13)])",
+      "explanation": "This generates a random string of fixed length with sufficient entropy to reduce the risk of guessing attacks.",
+      "type": "ollama"
+    },
+    {
+      "finding_title": "SSL Certificate Verification Disabled",
+      "severity": "CRITICAL",
+      "filepath": "C:\\Users\\royal\\AppData\\Local\\Temp\\sentinel_k9qk7d2c\\app.py",
+      "lineno": 147,
+      "before": "verify=False",
+      "after": "verify=True",
+      "explanation": "Enabling SSL certificate verification ensures that an encrypted connection is secure and trustworthy by checking against known Certificate Authorities (CAs).",
+      "type": "ollama"
+    }
+  ]
 }

@@ -1,239 +1,215 @@
 # 🛡️ SentinelAI — Multi-Agent AI Security Auditor
 
-> Automatically scan Python web applications for security vulnerabilities using a pipeline of 9 specialized AI agents — powered by a local LLM (Ollama/phi3) running on GPU.
+> Automatically scan Python web applications for vulnerabilities using 9 specialized agents — powered by a local LLM (Ollama/phi3) running fully offline on GPU.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
 ![Ollama](https://img.shields.io/badge/Ollama-phi3-green?style=flat-square)
+![OWASP](https://img.shields.io/badge/OWASP-Top%2010-red?style=flat-square)
 ![Agents](https://img.shields.io/badge/Agents-9-purple?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+
+**▶ [Watch Demo Video](https://youtu.be/W8bhxYdgS4A)**
 
 ---
 
 ## What is SentinelAI?
 
-SentinelAI is an AI-powered security auditing tool that scans Python web applications (Flask, Django) for vulnerabilities. It runs a pipeline of 9 specialized agents — each responsible for a different category of security analysis — and produces a detailed report with findings, risk scores, and **auto-generated fixes**.
+SentinelAI is a security auditing tool that scans Python web applications for vulnerabilities. It runs a pipeline of 9 specialized agents and produces a detailed report with findings, OWASP tags, risk grades, and auto-generated fixes.
 
-Unlike traditional static analysis tools that only match patterns, SentinelAI uses a **local LLM (phi3 on Ollama)** to semantically understand authentication logic and generate context-aware fixes — the same way a human security engineer would review code.
+Unlike traditional static analysis tools, SentinelAI uses a **local LLM (phi3 on Ollama)** to semantically understand authentication logic and generate context-aware fixes — the same way a human security engineer would review code.
 
----
-
-## Demo — Scanning a Flask Banking API
-## 🎬 Demo
-
-[![SentinelAI Demo](https://img.youtube.com/vi/W8bhxYdgS4A/maxresdefault.jpg)](https://youtu.be/W8bhxYdgS4A)
-
-> Full scan of a vulnerable Flask app — 41 findings, 9 agents, local LLM (phi3), ~100 seconds
-```
-============================================================
-  SentinelAI - Multi-Agent Security Auditor
-============================================================
-[Agent A] Pattern Detector        →   8 findings
-[Agent B] Auth Logic (LLM)        →   5 findings   ← LLM catches what patterns miss
-[Agent C] Data Flow Analyzer      →   1 finding
-[Agent E] Dependency Scanner      →  13 findings
-[Agent F] Git History Scanner     →   4 findings
-[Agent G] CORS & Headers          →   6 findings
-[Agent H] Cryptography Detector   →   3 findings
-[Agent I] Auto-Fix Engine         →  38 fixes generated
-
-  Total Issues  :  39
-  Risk Score    :  257  (CRITICAL)
-  Duration      :  ~107s  (GPU-accelerated)
-  Patched File  :  output/patched/FIXED_app.py  ← ready to review
-```
-
-**Example findings on real-looking code:**
-
-| Severity | Finding | Agent |
-|----------|---------|-------|
-| 🚨 CRITICAL | SQL Injection via string formatting in login | Agent B (LLM) |
-| 🚨 CRITICAL | Hardcoded Stripe live key `sk_live_...` | Agent A |
-| 🚨 CRITICAL | `eval()` on user input in budget calculator | Agent A |
-| 🔴 HIGH | MD5 used for password hashing | Agent H |
-| 🔴 HIGH | `verify=False` disables SSL cert checking | Agent A |
-| 🔴 HIGH | Insecure `random` used for password reset tokens | Agent H |
-| 🔴 HIGH | Webhook accepts payments without signature verification | Agent B (LLM) |
-| 🟡 MEDIUM | 6 missing browser security headers (CSP, HSTS, X-Frame-Options) | Agent G |
+**No API keys. No cloud. Your code never leaves your machine.**
 
 ---
 
-## Architecture
+## ✨ Key Features
 
-A sequential multi-agent pipeline where each agent specializes in one security domain:
-
-```
-  Your Code
-      │
-      ▼
- ┌──────────┐
- │ Ingestion │  Parses Python files, extracts functions, routes, imports
- └────┬─────┘
-      │
-      ├──▶ Agent A  Pattern Detector      regex + AST secret/vuln detection
-      ├──▶ Agent B  Auth Logic Auditor    LLM semantic analysis (phi3/Ollama)
-      ├──▶ Agent C  Data Flow Analyzer    tracks tainted user input to sinks
-      ├──▶ Agent E  Dependency Scanner    CVE lookup via OSV.dev API
-      ├──▶ Agent F  Git History Scanner   finds secrets in commit history
-      ├──▶ Agent G  CORS & Headers        security header configuration audit
-      ├──▶ Agent H  Cryptography          weak hashes, ciphers, RNG, SSL
-      ├──▶ Agent D  Risk Scorer           weighted risk score (0–500)
-      └──▶ Agent I  Auto-Fix Engine       generates fixes via Ollama
-              │
-              ▼
-     JSON report  +  Markdown  +  PDF  +  FIXED_app.py
-```
-
-**What makes Agent B different:** Instead of matching patterns, it sends your actual authentication functions to a local LLM and asks "what could go wrong here?" — catching logic flaws like always-true conditions, missing auth checks, and broken access control that regex can never find.
+- **9-Agent Pipeline** — each agent specialises in a different vulnerability category
+- **Local LLM** — phi3 via Ollama for semantic auth analysis and auto-fix generation
+- **100% OWASP Top 10 Coverage** — every finding tagged to OWASP 2021 + CWE ID
+- **AI Code Generator** — describe code → AI writes it → SentinelAI scans → auto-fixes critical issues
+- **Risk Grade A-F** — human-readable security score with percentage
+- **Colored Diff View** — see exactly which lines changed to fix vulnerabilities
+- **Shannon Entropy Detection** — catches secrets that bypass pattern matching
+- **AST-Validated Fixes** — patches verified as valid Python before saving
+- **CI/CD Integration** — `--ci-mode` for GitHub Actions / GitLab CI
+- **PDF + JSON Export** — professional security report
 
 ---
 
-## Features
+## 🤖 The 9 Agents
 
-- **9 specialized agents** — secrets, auth logic, data flow, dependencies, git history, CORS, cryptography, risk scoring, auto-fix
-- **Local LLM** — phi3 on Ollama, no API key, runs fully offline, your code never leaves your machine
-- **GPU accelerated** — CUDA inference on NVIDIA GPU (GTX 1650 / 4GB VRAM tested)
-- **Auto-fix engine** — Agent I generates a corrected code snippet for every finding and saves a patched copy of your file
-- **Streamlit dashboard** — file upload, plain-English explanations, scan history, dark theme
-- **PDF export** — one-click professional security report with all findings
-- **CLI** — scan any directory or file from the terminal
+| Agent | Name | Method | What it finds |
+|---|---|---|---|
+| A | Pattern Detector | Regex + AST + Entropy | Hardcoded secrets, SQL injection, eval(), debug flags |
+| B | Auth Logic Auditor | **LLM (phi3)** | Auth bypass, broken session logic, logic bugs |
+| C | Data Flow Analyzer | AST taint tracking | User input flowing into dangerous sinks |
+| D | Risk Scorer | Weighted formula | Deduplication + risk score calculation |
+| E | Dependency Scanner | OSV.dev API | CVE lookup on all requirements.txt dependencies |
+| F | Git History Scanner | git log -G | Secrets deleted from code but still in git history |
+| G | CORS & Headers | HTTP header analysis | Wildcard CORS, missing security headers |
+| H | Cryptography Auditor | Pattern matching | MD5/SHA1 passwords, disabled SSL, weak algorithms |
+| I | Auto-Fix Engine | **LLM (phi3)** | Generates and AST-validates code fixes |
 
 ---
 
-## Quickstart
+## 🔄 AI Code Generator
 
-**Requirements:** Python 3.10+, [Ollama](https://ollama.ai), NVIDIA GPU (optional but recommended)
+```
+1. You describe the code you need
+          ↓
+2. phi3 generates complete Python code
+          ↓
+3. All 9 agents scan it for vulnerabilities
+          ↓
+4. Critical issues found? phi3 rewrites with fixes, then scans again
+          ↓
+5. Download production-ready secure code
+```
 
+**Real result:** Flask login system → Risk Grade **F (18%)** → after 2 fix loops → **A- (91%)**
+
+---
+
+## 📊 Sample Results
+
+Scanning a vulnerable Flask banking API:
+
+```
+Risk Grade:  F (18%)
+Risk Score:  242/500
+Findings:    41 total — 10 CRITICAL, 19 HIGH, 8 MEDIUM, 4 LOW
+
+OWASP Coverage:
+  A01 Broken Access Control       2
+  A02 Cryptographic Failures      4
+  A03 Injection                   7
+  A04 Insecure Design             6
+  A05 Security Misconfiguration   4
+  A06 Vulnerable Components      12
+  A07 Auth & Identity Failures    4
+```
+
+---
+
+## ⚡ Quick Start
+
+### Prerequisites
+- Python 3.10+
+- [Ollama](https://ollama.ai) with phi3 model
+- NVIDIA GPU recommended (runs on CPU too, slower)
+
+### 1. Clone and install
 ```bash
-# 1. Clone
-git clone https://github.com/yourusername/sentinelai.git
-cd sentinelai
-
-# 2. Install Python dependencies
+git clone https://github.com/BM840/SentinelAI.git
+cd SentinelAI
 pip install -r requirements.txt
+```
 
-# 3. Pull the LLM
+### 2. Start Ollama
+```bash
 ollama pull phi3
-
-# 4. Scan the included demo app
-python main.py demo_app/
-
-# 5. Or launch the dashboard
-streamlit run dashboard.py
+ollama serve
 ```
 
----
-
-## Usage
-
-### CLI
+### 3. Run a scan
 ```bash
-python main.py my_flask_app/          # scan a directory
-python main.py app.py                 # scan a single file
-python main.py my_flask_app/ --no-llm # skip LLM (faster, no Ollama needed)
+python main.py /path/to/your/project
 ```
 
-### Dashboard
+### 4. Launch dashboard
 ```bash
 streamlit run dashboard.py
 ```
-Upload a `.py` file, click **Launch Scan**, view findings, export PDF, download the auto-fixed file.
 
-### Export PDF
+Open http://localhost:8501
+
+---
+
+## 🖥️ CLI Usage
+
 ```bash
-python export_pdf.py output/sentinel_report.json
+# Basic scan
+python main.py /path/to/project
+
+# Fast scan (skip LLM agents)
+python main.py /path/to/project --no-llm
+
+# CI/CD mode
+python main.py /path/to/project --ci-mode --fail-on critical
+
+# Differential scan — only files changed since last commit
+python main.py /path/to/project --ci-mode --diff HEAD~1
+```
+
+### GitHub Actions
+```yaml
+- name: SentinelAI Security Scan
+  run: |
+    pip install -r requirements.txt
+    python main.py . --ci-mode --fail-on high
 ```
 
 ---
 
-## Agent Reference
-
-| Agent | Method | Detects |
-|-------|--------|---------|
-| **A** — Pattern Detector | Regex + AST | Hardcoded secrets, API keys, `eval()`, SQL injection, debug mode |
-| **B** — Auth Logic Auditor | LLM (phi3) | Login bypass, privilege escalation, missing auth, broken access control |
-| **C** — Data Flow Analyzer | Static analysis | Unsanitized user input reaching dangerous functions |
-| **D** — Risk Scorer | Weighted scoring | Overall risk score 0–500, severity breakdown |
-| **E** — Dependency Scanner | OSV.dev API | Known CVEs in installed packages |
-| **F** — Git History Scanner | Git log analysis | Secrets committed then deleted from history |
-| **G** — CORS & Headers | Config audit | Wildcard CORS, missing CSP/HSTS/X-Frame headers, insecure cookies |
-| **H** — Cryptography | Pattern + AST | MD5/SHA1, ECB mode, insecure RNG, disabled SSL verification |
-| **I** — Auto-Fix Engine | LLM (phi3) | Generates fixed code for every finding, saves patched file |
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
-sentinelai/
-├── main.py                 # CLI entry point
-├── dashboard.py            # Streamlit dashboard
-├── export_pdf.py           # PDF report generator
+SentinelAI/
+├── main.py                           # CLI + CI/CD flags
+├── dashboard.py                      # Streamlit dashboard
 ├── requirements.txt
-│
 ├── core/
-│   ├── ingestion.py        # AST-based code parser
-│   ├── models.py           # Finding, Severity models
-│   └── orchestrator.py     # Agent pipeline coordinator
-│
+│   ├── ingestion.py                  # AST parser
+│   ├── models.py                     # Finding dataclass + Confidence enum
+│   ├── orchestrator.py               # Agent pipeline
+│   └── owasp.py                      # CWE-to-OWASP mapping (200+ entries)
 ├── agents/
 │   ├── agent_a_pattern_detector.py
-│   ├── agent_b_auth_auditor.py      ← LLM-powered
+│   ├── agent_b_auth_auditor.py       # LLM
 │   ├── agent_c_dataflow.py
 │   ├── agent_d_risk_scorer.py
-│   ├── agent_e_dependency_scanner.py
-│   ├── agent_f_git_history.py
+│   ├── agent_e_dependency_scanner.py # OSV API + caching
+│   ├── agent_f_git_history.py        # git log -G
 │   ├── agent_g_cors_headers.py
 │   ├── agent_h_cryptography.py
-│   └── agent_i_autofix.py           ← LLM-powered
-│
-├── demo_app/               # Realistic intentionally-vulnerable Flask app
-│   ├── app.py              # SecureBank banking API
-│   └── requirements.txt
-│
-└── output/                 # Scan results (auto-created)
-    ├── sentinel_report.json
-    ├── sentinel_report.md
-    ├── sentinel_report.pdf
-    ├── fix_suggestions.json
-    └── patched/
-        └── FIXED_app.py
+│   └── agent_i_autofix.py            # LLM + AST validation
+└── demo_app/                         # Intentionally vulnerable Flask app
 ```
 
 ---
 
-## Tech Stack
+## 🔧 Architecture Decisions
 
-| Layer | Technology |
-|-------|------------|
-| Language | Python 3.10+ |
-| LLM Engine | Ollama + phi3 (local, GPU-accelerated) |
-| Dashboard | Streamlit |
-| PDF Reports | ReportLab |
-| CVE Data | OSV.dev API |
-| Code Analysis | Python `ast` module |
-| Git Analysis | subprocess + git CLI |
+**Why local LLM?**
+Security tools process sensitive source code. Sending code to a third-party API is itself a security risk. phi3 on Ollama runs entirely offline.
 
----
+**Why only 2 LLM agents out of 9?**
+LLM inference is slow on a 4GB GPU. Deterministic analysis is faster and more accurate for pattern-based detection. LLM is used only where semantic understanding genuinely adds value: auth logic and fix generation.
 
-## Why Local LLM?
-
-Most AI security tools send your code to a cloud API. SentinelAI runs entirely on your machine:
-
-- **Private** — your source code never leaves your computer
-- **Free** — no API costs after setup
-- **Fast** — GPU inference with NVIDIA CUDA
-- **Offline** — works without internet (except CVE lookups)
+**Why deterministic CWE-to-OWASP mapping?**
+Keyword matching fails when the LLM rephrases descriptions. A 200+ entry CWE lookup table gives 100% deterministic OWASP tagging regardless of wording.
 
 ---
 
-## Roadmap
+## 🎯 Resume Bullet Points
 
-- [ ] OWASP Top 10 mapping on all findings
-- [ ] Django and FastAPI support
-- [ ] GitHub Actions CI/CD integration
-- [ ] Docker container
-- [ ] Web deployment
+> - Built a 9-module automated security pipeline detecting SQL injection, hardcoded secrets, CVEs, and auth bypass across Python web apps
+> - Integrated local LLM (phi3/Ollama) for semantic code analysis and auto-fix generation — runs fully offline on GPU
+> - Achieved 100% OWASP Top 10 coverage via deterministic CWE mapping; Risk Grade A-F scoring system
+> - Built AI Code Generator: describe → generate → scan → auto-fix loop reducing risk from F to A- in 2 iterations
+> - Optimised LLM scan from 351s to 95s (3.7x speedup); added CI/CD integration for GitHub Actions
 
 ---
 
-*Built to demonstrate multi-agent AI architecture applied to real-world security engineering.*
+## 👤 Author
+
+**Bharat Maheshwari** — 4th Year CSE, Bennett University
+- GitHub: [BM840](https://github.com/BM840)
+- LinkedIn: [Bharat Maheshwari](https://linkedin.com/in/bharat-maheshwari)
+
+---
+
+## 📄 License
+
+MIT License
